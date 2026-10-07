@@ -705,25 +705,6 @@
         </div>
     </div>
 
-    <!-- NOTIFIKASI PWA (INSTALL APP) -->
-    <div id="pwa-install-prompt" class="hidden translate-y-full fixed bottom-0 left-0 right-0 z-[100000] p-4 transition-transform duration-500 ease-in-out md:max-w-md md:mx-auto md:bottom-4">
-        <div class="bg-white rounded-2xl shadow-2xl border border-green-100 p-4 flex flex-col gap-3">
-            <div class="flex items-center gap-4">
-                <div class="w-12 h-12 rounded-xl bg-green-100 text-green-700 flex items-center justify-center text-2xl flex-shrink-0 shadow-inner border border-green-200">
-                    <i class="fa-solid fa-download animate-bounce"></i>
-                </div>
-                <div class="flex-grow">
-                    <h3 class="font-bold text-gray-800 text-sm">Pasang Aplikasi Ruhui Keraton</h3>
-                    <p class="text-[10px] text-gray-500 mt-0.5 leading-tight">Tambahkan ke layar utama HP untuk akses belanja yang lebih cepat, mudah, dan hemat kuota!</p>
-                </div>
-            </div>
-            <div class="flex gap-2 mt-1">
-                <button onclick="dismissPwaPrompt()" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-2.5 rounded-xl text-xs transition-colors">Nanti Saja</button>
-                <button onclick="installPwaApp()" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 rounded-xl text-xs shadow-md transition-colors flex justify-center items-center gap-1.5"><i class="fa-solid fa-plus text-[10px]"></i> Pasang Sekarang</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Hidden Inputs for File Uploads -->
     <input type="file" id="profile-avatar-input" accept="image/*" class="hidden" onchange="handleProfileAvatarUpload(event)">
     <input type="file" id="app-logo-upload-input" accept="image/*" class="hidden" onchange="handleAppLogoUpload(event)">
@@ -1212,17 +1193,31 @@
         const pass = document.getElementById('admin-new-pass').value.trim();
         if(!pass) return showToast("Masukkan password baru.");
         const u = window.appData.users[userKey];
-        if(u && window.updateDoc) {
-            await updateDoc(doc(db, window.getPath('users'), u.uid), { password: pass });
-            closeResetPasswordModal(); showToast("Password direset (Hanya visual).");
+        if(u) {
+            try {
+                await updateDoc(doc(db, window.getPath('users'), u.uid), { password: pass });
+                closeResetPasswordModal(); 
+                showToast("Password berhasil direset!");
+                document.getElementById('admin-new-pass').value = '';
+            } catch(e) {
+                showToast("Gagal reset password: " + e.message);
+            }
+        } else {
+            showToast("Pengguna tidak ditemukan.");
         }
     };
 
     window.toggleBlockUser = async (userKey) => {
         const u = window.appData.users[userKey];
-        if(u && window.updateDoc) {
-            await updateDoc(doc(db, window.getPath('users'), u.uid), { isActive: !u.isActive });
-            showToast(u.isActive ? "Akun diblokir." : "Akun dibuka.");
+        if(u) {
+            try {
+                await updateDoc(doc(db, window.getPath('users'), u.uid), { isActive: !u.isActive });
+                showToast(u.isActive ? "Akun berhasil diblokir." : "Akun berhasil dibuka.");
+            } catch(e) {
+                showToast("Gagal mengubah status: " + e.message);
+            }
+        } else {
+            showToast("Pengguna tidak ditemukan.");
         }
     };
 
@@ -1357,41 +1352,16 @@
                 await setDoc(doc(collection(db, window.getPath('banners'))), { url: "https://placehold.co/800x350/00AA5B/FFFFFF?text=Promo+Pasar+Tradisional", linkUrl: "", isVisible: true });
             } else if (type === 'admin') {
                 
-                // 1. Seed Superadmin secara paksa & anti-gagal
                 try {
                     if (!window.appData.users['superadmin']) {
-                        let uid = "";
-                        try {
-                            const cred1 = await createUserWithEmailAndPassword(secondaryAuth, 'superadmin@ruhuikeraton.com', 'edudigital');
-                            uid = cred1.user.uid;
-                        } catch (e) {
-                            if (e.code === 'auth/email-already-in-use') {
-                                const cred1 = await signInWithEmailAndPassword(secondaryAuth, 'superadmin@ruhuikeraton.com', 'edudigital');
-                                uid = cred1.user.uid;
-                            } else throw e;
-                        }
-                        if (uid) await setDoc(doc(db, window.getPath('users'), uid), { uid: uid, usernameKey: 'superadmin', email: 'superadmin@ruhuikeraton.com', name: 'Bos Superadmin', role: 'superadmin', isActive: true, password: 'edudigital' });
+                        const sRef = doc(collection(db, window.getPath('users')));
+                        await setDoc(sRef, { uid: sRef.id, usernameKey: 'superadmin', email: 'superadmin@ruhuikeraton.com', name: 'Bos Superadmin', role: 'superadmin', isActive: true, password: 'edudigital' });
                     }
-                } catch(e) { console.log("Gagal superadmin", e); }
-
-                // 2. Seed Admin biasa secara paksa & anti-gagal
-                try {
                     if (!window.appData.users['admin']) {
-                        let uid = "";
-                        try {
-                            const cred2 = await createUserWithEmailAndPassword(secondaryAuth, 'admin@ruhuikeraton.com', 'edudigital');
-                            uid = cred2.user.uid;
-                        } catch (e) {
-                            if (e.code === 'auth/email-already-in-use') {
-                                const cred2 = await signInWithEmailAndPassword(secondaryAuth, 'admin@ruhuikeraton.com', 'edudigital');
-                                uid = cred2.user.uid;
-                            } else throw e;
-                        }
-                        if (uid) await setDoc(doc(db, window.getPath('users'), uid), { uid: uid, usernameKey: 'admin', email: 'admin@ruhuikeraton.com', name: 'Admin Support', role: 'admin', isActive: true, password: 'edudigital' });
+                        const aRef = doc(collection(db, window.getPath('users')));
+                        await setDoc(aRef, { uid: aRef.id, usernameKey: 'admin', email: 'admin@ruhuikeraton.com', name: 'Admin Support', role: 'admin', isActive: true, password: 'edudigital' });
                     }
-                } catch(e) { console.log("Gagal admin", e); }
-                
-                await signOut(secondaryAuth);
+                } catch(e) { console.log("Gagal membuat admin: ", e); }
                 window.isSeedingAdmin = false;
 
             } else if (type === 'years') {
@@ -1402,10 +1372,12 @@
     }
 
     function syncCurrentUser() {
-        if (auth.currentUser && !auth.currentUser.isAnonymous) {
-            const email = auth.currentUser.email;
-            const u = Object.values(window.appData.users).find(x => x.email === email);
-            if (u) { window.currentUser = u; renderProfileState(); }
+        if (window.currentUser) {
+            const u = window.appData.users[window.currentUser.usernameKey];
+            if (u) { 
+                window.currentUser = u; 
+                renderProfileState(); 
+            }
         }
     }
 
@@ -2522,80 +2494,6 @@
         await updateDoc(doc(db, window.getPath('orders'), id), { review: { shopRating: sr, productRating: pr, comment } });
         closeReviewModal(); showToast("Terima Kasih atas Ulasannya!");
     }
-
-    // ============================================
-    // SISTEM PWA (PROGRESSIVE WEB APP) & INSTALL PROMPT
-    // ============================================
-    window.deferredPrompt = null;
-
-    // 1. Injeksi Web Manifest secara dinamis untuk Blogger
-    const manifestData = {
-        "name": window.platformSettings ? window.platformSettings.name : "Ruhui Keraton Tapin",
-        "short_name": "Ruhui Keraton",
-        "start_url": window.location.href,
-        "display": "standalone",
-        "background_color": "#166534",
-        "theme_color": "#166534",
-        "description": "Pasar Tradisional Online",
-        "icons": [
-            { "src": "https://placehold.co/192x192/166534/FFFFFF?text=RK", "sizes": "192x192", "type": "image/png" },
-            { "src": "https://placehold.co/512x512/166534/FFFFFF?text=RK", "sizes": "512x512", "type": "image/png" }
-        ]
-    };
-    const manifestBlob = new Blob([JSON.stringify(manifestData)], { type: 'application/json' });
-    const manifestLink = document.createElement('link');
-    manifestLink.rel = 'manifest';
-    manifestLink.href = URL.createObjectURL(manifestBlob);
-    document.head.appendChild(manifestLink);
-
-    // 2. Injeksi Service Worker 
-    if ('serviceWorker' in navigator) {
-        const swCode = `self.addEventListener('install', (e) => { self.skipWaiting(); }); self.addEventListener('activate', (e) => { e.waitUntil(self.clients.claim()); }); self.addEventListener('fetch', (e) => { e.respondWith(fetch(e.request).catch(() => new Response('Offline'))); });`;
-        const swBlob = new Blob([swCode], { type: 'application/javascript' });
-        navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(() => {});
-    }
-
-    // 3. Tangkap Event Native (Jika diizinkan Chrome)
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        window.deferredPrompt = e;
-    });
-
-    // 4. PAKSA Munculkan Kotak Notifikasi Setelah 3 Detik (Jika belum pernah ditolak)
-    setTimeout(() => {
-        const hasDismissed = localStorage.getItem('ruhui_pwa_dismissed');
-        if (!hasDismissed) {
-            const promptEl = document.getElementById('pwa-install-prompt');
-            if(promptEl) {
-                promptEl.classList.remove('hidden');
-                setTimeout(() => promptEl.classList.remove('translate-y-full'), 50);
-            }
-        }
-    }, 3000);
-
-    window.dismissPwaPrompt = () => {
-        // Simpan ke memori agar tidak spam
-        localStorage.setItem('ruhui_pwa_dismissed', 'true');
-        const promptEl = document.getElementById('pwa-install-prompt');
-        if(promptEl) {
-            promptEl.classList.add('translate-y-full');
-            setTimeout(() => promptEl.classList.add('hidden'), 500); 
-        }
-    };
-
-    window.installPwaApp = async () => {
-        window.dismissPwaPrompt();
-        if (window.deferredPrompt) {
-            // Jika instalasi otomatis diizinkan
-            window.deferredPrompt.prompt(); 
-            const { outcome } = await window.deferredPrompt.userChoice;
-            window.deferredPrompt = null;
-            if(outcome === 'accepted') showToast('Aplikasi sedang dipasang ke layar HP Pian!');
-        } else {
-            // Jika instalasi otomatis diblokir Blogger, arahkan cara manual
-            alert("Google membatasi penginstalan otomatis di platform ini.\n\nCARA PASANG MANUAL (Hanya 2 Detik):\n1. Klik ikon TITIK TIGA (⋮) di pojok kanan atas browser ini.\n2. Pilih menu 'Tambahkan ke Layar Utama' (Add to Home screen).\n3. Selesai! Aplikasi akan terpasang di HP Pian.");
-        }
-    };
 </script>
 
 </body>
