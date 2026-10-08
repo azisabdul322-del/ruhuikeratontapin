@@ -168,7 +168,6 @@
                 </button>
             </div>
 
-            <!-- KOTAK STATISTIK PENGGUNA AKTIF (SOCIAL PROOF) -->
             <div id="home-stats-container" class="grid grid-cols-3 gap-2 md:gap-3 mb-6"></div>
 
             <div class="flex justify-between items-center mb-3">
@@ -705,6 +704,21 @@
         </div>
     </div>
 
+    <!-- PWA Install Prompt Notification -->
+    <div id="pwa-install-prompt" class="fixed bottom-[-100%] left-0 right-0 md:left-1/2 md:-translate-x-1/2 md:w-[400px] bg-white rounded-t-3xl md:rounded-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.2)] p-6 z-[100000] transition-all duration-500 flex flex-col gap-3 border border-gray-100">
+        <div class="flex items-start gap-4">
+            <div class="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-700 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg shrink-0"><i class="fa-solid fa-store"></i></div>
+            <div>
+                <h3 class="font-black text-gray-800 text-lg leading-tight">Pasang Aplikasi</h3>
+                <p class="text-xs text-gray-500 mt-1">Belanja lebih cepat, mudah, dan hemat kuota langsung dari layar utama HP Pian.</p>
+            </div>
+        </div>
+        <div class="flex gap-2 mt-2">
+            <button onclick="dismissPWA()" class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-2.5 rounded-xl text-sm transition-colors">Nanti Saja</button>
+            <button onclick="installPWA()" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 rounded-xl text-sm shadow-md transition-colors flex justify-center items-center gap-2"><i class="fa-solid fa-download"></i> Pasang Sekarang</button>
+        </div>
+    </div>
+
     <!-- Hidden Inputs for File Uploads -->
     <input type="file" id="profile-avatar-input" accept="image/*" class="hidden" onchange="handleProfileAvatarUpload(event)">
     <input type="file" id="app-logo-upload-input" accept="image/*" class="hidden" onchange="handleAppLogoUpload(event)">
@@ -720,7 +734,7 @@
     // MENGIMPOR SDK FIREBASE 11.6.1
     // ============================================
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // ============================================
@@ -735,20 +749,22 @@
         appId: "1:943209064965:web:91095f3091a7e807a90a6c"
     };
     
-    // PAKSA MENGGUNAKAN FIREBASE MILIK PIAN SECARA MURNI (Abaikan Sandbox Lingkungan Preview)
     const firebaseConfig = userFirebaseConfig;
-    const appId = 'ruhui-kraton-tapin';
     
     // Initialize Main App & Auth
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // Initialize Secondary App for Admin creating users without logging out
-    const secondaryApp = initializeApp(firebaseConfig, "SecondaryApp");
-    const secondaryAuth = getAuth(secondaryApp);
+    // Mendaftarkan fungsi Firebase ke global agar bisa dieksekusi tombol HTML
+    window.db = db;
+    window.doc = doc;
+    window.collection = collection;
+    window.deleteDoc = deleteDoc;
+    window.updateDoc = updateDoc;
+    window.setDoc = setDoc;
 
-    // Helper: Strict Paths enforced for Sandbox / Production safety
+    // Helper: Strict Paths enforced
     window.getPath = function(colName) {
         return colName;
     }
@@ -778,9 +794,6 @@
     window.currentSelectedCatColor = "bg-green-100 text-green-600";
     window.platformSettings = { name: "RUHUI KERATON", tagline: "Pasar Tradisional Tapin", logoUrl: "" };
     window.dummyAboutText = `<p>Aplikasi ini hadir untuk memudahkan masyarakat berbelanja kebutuhan sehari-hari secara online, mulai dari sayuran, daging, ikan, hingga sembako, sekaligus mendorong digitalisasi pasar tradisional dan pertumbuhan ekonomi lokal.</p>`;
-    window.chatRooms = []; // Virtual chat rooms built from orders and direct chats
-
-    const availableIcons = ["fa-basket-shopping", "fa-box", "fa-store", "fa-shop", "fa-cart-shopping", "fa-bag-shopping", "fa-apple-whole", "fa-carrot", "fa-lemon", "fa-seedling", "fa-leaf", "fa-pepper-hot", "fa-fish", "fa-drumstick-bite", "fa-bowl-rice", "fa-bread-slice", "fa-cheese", "fa-burger", "fa-pizza-slice", "fa-hotdog", "fa-cookie", "fa-candy-cane", "fa-ice-cream", "fa-cake-candles", "fa-mug-hot", "fa-bottle-water", "fa-wine-bottle", "fa-martini-glass", "fa-utensils", "fa-spoon", "fa-bowl-food", "fa-shirt", "fa-tshirt", "fa-socks", "fa-shoe-prints", "fa-hat-cowboy", "fa-glasses", "fa-ring", "fa-gem", "fa-mobile-screen-button", "fa-laptop", "fa-desktop", "fa-tv", "fa-headphones", "fa-camera", "fa-gamepad", "fa-plug", "fa-battery-full", "fa-couch", "fa-bed", "fa-bath", "fa-blender", "fa-fan", "fa-chair", "fa-toolbox", "fa-hammer", "fa-wrench", "fa-screwdriver", "fa-motorcycle", "fa-car", "fa-truck", "fa-bicycle", "fa-gas-pump", "fa-baby", "fa-child-reaching", "fa-paw", "fa-bone", "fa-book", "fa-pen", "fa-graduation-cap", "fa-basketball", "fa-futbol", "fa-dumbbell", "fa-table-tennis-paddle-ball", "fa-gift", "fa-tag", "fa-ticket", "fa-pump-soap", "fa-spray-can", "fa-broom", "fa-trash-can", "fa-jug-detergent", "fa-pills", "fa-syringe", "fa-stethoscope", "fa-briefcase-medical", "fa-scissors", "fa-clock", "fa-compass", "fa-map", "fa-location-dot"];
 
     // ============================================
     // HELPER FUNCTIONS
@@ -788,9 +801,7 @@
     window.showLoading = (show) => { document.getElementById('loading-overlay').style.display = show ? 'flex' : 'none'; }
     window.showToast = (message) => { const t = document.getElementById('toast'); t.textContent = message; t.className = "toast show"; setTimeout(() => { t.className = t.className.replace("show", ""); }, 3000); }
     window.formatRupiah = (number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number || 0);
-    window.calculateDistance = (lat1, lon1, lat2, lon2) => { const R = 6371; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180; const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2); const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); return (R * c).toFixed(1); }
     
-    // COMPRESS IMAGE TO BASE64 TO SAVE FIRESTORE QUOTA (< 1MB)
     window.compressImageToBase64 = async (file, maxWidth = 800) => {
         return new Promise((resolve) => {
             const reader = new FileReader();
@@ -802,7 +813,7 @@
                     if (width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth; }
                     canvas.width = width; canvas.height = height;
                     const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
-                    resolve(canvas.toDataURL('image/jpeg', 0.6)); // 60% quality compression
+                    resolve(canvas.toDataURL('image/jpeg', 0.6));
                 };
                 img.src = e.target.result;
             };
@@ -811,8 +822,415 @@
     }
 
     // ============================================
-    // FUNGSI RENDER TAMPILAN & MODAL (YANG HILANG)
+    // FIREBASE INITIALIZATION & SYNC
     // ============================================
+    window.onload = async () => {
+        showLoading(true);
+        // Force Anonymous Auth first to pass security rules for reading public data safely without blocking internal auth
+        try { await signInAnonymously(auth); } catch(e) { console.warn("Anon Auth Error", e); }
+        startFirebaseListeners();
+        
+        // Remove Splash
+        const splash = document.getElementById('ruhui-splash-v2');
+        const wrapper = document.getElementById('ruhui-app-wrapper');
+        if(wrapper) { wrapper.style.opacity = '1'; }
+        if(splash) { setTimeout(() => { splash.style.opacity = '0'; setTimeout(() => splash.remove(), 600); }, 1000); }
+        
+        showLoading(false);
+        navigate('home');
+
+        // PWA Trigger
+        setTimeout(() => {
+            if(!localStorage.getItem('pwa_dismissed')) {
+                document.getElementById('pwa-install-prompt').style.bottom = '20px';
+            }
+        }, 3000);
+    };
+
+    function startFirebaseListeners() {
+        const cols = ['users', 'shops', 'products', 'orders', 'categories', 'banners', 'reports', 'messages', 'years', 'settings'];
+        cols.forEach(c => {
+            onSnapshot(collection(db, window.getPath(c)), (snap) => {
+                const data = [];
+                snap.forEach(doc => data.push({ ...doc.data(), id: doc.id }));
+                
+                if (c === 'users') {
+                    window.appData.users = {};
+                    data.forEach(u => window.appData.users[u.usernameKey] = u);
+                    
+                    // Sesi Permanen Auto-Login
+                    const savedUser = localStorage.getItem('ruhui_user_session');
+                    if (savedUser && window.appData.users[savedUser]) {
+                         window.currentUser = window.appData.users[savedUser];
+                    }
+                    syncCurrentUser();
+                    
+                    if (!window.isSeedingAdmin && (!window.appData.users['superadmin'] || !window.appData.users['admin'])) {
+                        window.isSeedingAdmin = true;
+                        seedInitialData('admin');
+                    }
+                } else if (c === 'years') {
+                    window.appData.years = data.map(y => y.year).sort((a,b)=>b-a);
+                } else if (c === 'settings' && data.length > 0) {
+                    window.platformSettings = data[0];
+                    if(data[0].aboutText) window.dummyAboutText = data[0].aboutText;
+                    updateUIHeaders();
+                } else {
+                    window.appData[c] = data;
+                }
+                
+                if (c === 'categories' && data.length === 0) seedInitialData('categories');
+                if (c === 'banners' && data.length === 0) seedInitialData('banners');
+                if (c === 'years' && data.length === 0) seedInitialData('years');
+                
+                refreshCurrentView();
+            }, (err) => { 
+                console.error("Firebase Sync Error", c, err); 
+            });
+        });
+    }
+
+    async function seedInitialData(type) {
+        try {
+            if (type === 'categories') {
+                const defCats = [
+                    {name: "Sayuran", icon: "fa-leaf", color: "bg-green-100 text-green-600"}, {name: "Daging", icon: "fa-drumstick-bite", color: "bg-red-100 text-red-600"},
+                    {name: "Ikan", icon: "fa-fish", color: "bg-blue-100 text-blue-600"}, {name: "Bumbu", icon: "fa-pepper-hot", color: "bg-orange-100 text-orange-600"},
+                    {name: "Sembako", icon: "fa-bowl-rice", color: "bg-yellow-100 text-yellow-600"}, {name: "Buah", icon: "fa-apple-whole", color: "bg-pink-100 text-pink-600"},
+                    {name: "Jajanan", icon: "fa-cookie", color: "bg-amber-100 text-amber-700"}, {name: "Kriya", icon: "fa-basket-shopping", color: "bg-purple-100 text-purple-600"}
+                ];
+                for(let i=0; i<defCats.length; i++) {
+                    await setDoc(doc(collection(db, window.getPath('categories'))), defCats[i]);
+                }
+            } else if (type === 'banners') {
+                await setDoc(doc(collection(db, window.getPath('banners'))), { url: "https://placehold.co/800x350/00AA5B/FFFFFF?text=Promo+Pasar+Tradisional", linkUrl: "", isVisible: true });
+            } else if (type === 'admin') {
+                // Buat Admin Langsung via Database tanpa Auth Google
+                if (!window.appData.users['superadmin']) {
+                    const sRef = doc(collection(db, window.getPath('users')));
+                    await setDoc(sRef, { uid: sRef.id, usernameKey: 'superadmin', email: 'superadmin@ruhuikeraton.com', name: 'Bos Superadmin', role: 'superadmin', isActive: true, password: 'edudigital' });
+                }
+                if (!window.appData.users['admin']) {
+                    const aRef = doc(collection(db, window.getPath('users')));
+                    await setDoc(aRef, { uid: aRef.id, usernameKey: 'admin', email: 'admin@ruhuikeraton.com', name: 'Admin Support', role: 'admin', isActive: true, password: 'edudigital' });
+                }
+                window.isSeedingAdmin = false;
+            } else if (type === 'years') {
+                [2024, 2025, 2026].forEach(async y => { await setDoc(doc(db, window.getPath('years'), y.toString()), {year: y}); });
+                await setDoc(doc(db, window.getPath('settings'), 'core'), window.platformSettings);
+            }
+        } catch(e) { console.log("Seeding failed", e); }
+    }
+
+    function syncCurrentUser() {
+        if (window.currentUser) {
+            const u = window.appData.users[window.currentUser.usernameKey];
+            if (u && u.isActive) { 
+                window.currentUser = u; 
+                renderProfileState(); 
+            } else if (u && !u.isActive) {
+                // Terblokir
+                window.currentUser = null;
+                localStorage.removeItem('ruhui_user_session');
+                renderProfileState();
+            }
+        }
+    }
+
+    function updateUIHeaders() {
+        document.getElementById('app-name-display').textContent = window.platformSettings.name;
+        document.getElementById('app-tagline-display').textContent = window.platformSettings.tagline;
+        const logoRender = document.getElementById('app-logo-container');
+        logoRender.innerHTML = window.platformSettings.logoUrl ? `<img src="${window.platformSettings.logoUrl}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-store group-hover:animate-pulse"></i>`;
+    }
+
+    function refreshCurrentView() {
+        if(!document.getElementById('view-home').classList.contains('hidden')) renderHome();
+        if(!document.getElementById('view-shops').classList.contains('hidden')) renderShops();
+        if(!document.getElementById('view-orders').classList.contains('hidden')) renderOrders();
+        if(!document.getElementById('view-profile').classList.contains('hidden')) renderProfileState();
+        if(window.currentActiveShopId && !document.getElementById('view-shop-detail').classList.contains('hidden')) renderShopDetail(window.currentActiveShopId);
+        if(window.activePreviewProductId) openProductPreviewModal(window.activePreviewProductId);
+    }
+
+    window.handleLogin = async () => {
+        const userKey = document.getElementById('login-username').value.toLowerCase().replace(/\s+/g, '').trim();
+        const pass = document.getElementById('login-password').value;
+        if(!userKey || !pass) return showToast("Lengkapi username & password!");
+
+        showLoading(true);
+        setTimeout(() => {
+            const u = window.appData.users[userKey];
+            if (u) {
+                if (u.password === pass) {
+                    if (!u.isActive) {
+                        showToast("Akun Anda diblokir oleh Admin.");
+                    } else {
+                        window.currentUser = u;
+                        localStorage.setItem('ruhui_user_session', userKey);
+                        showToast("Berhasil masuk!");
+                        renderProfileState();
+                    }
+                } else {
+                    showToast("Password salah!");
+                }
+            } else {
+                showToast("Username tidak terdaftar!");
+            }
+            showLoading(false);
+        }, 500); // Simulasi proses loading
+    }
+
+    window.handleBuyerRegister = async () => {
+        const userKey = document.getElementById('reg-username').value.toLowerCase().replace(/\s+/g, '').trim();
+        const name = document.getElementById('reg-name').value.trim();
+        const phone = document.getElementById('reg-phone').value.trim();
+        const nik = document.getElementById('reg-nik').value.trim();
+        const address = document.getElementById('reg-address').value.trim();
+        const pass = document.getElementById('reg-password').value.trim();
+
+        if(!userKey || !name || !phone || !nik || !address || !pass) return showToast("Semua data pendaftaran wajib diisi!");
+        if(window.appData.users[userKey]) return showToast("Username sudah dipakai, cari yang lain!");
+
+        const userList = Object.values(window.appData.users);
+        if(userList.some(u => u.nik === nik)) return showToast("NIK sudah terdaftar! 1 NIK 1 Akun.");
+
+        showLoading(true);
+        try {
+            const newRef = doc(collection(db, window.getPath('users')));
+            await setDoc(newRef, {
+                uid: newRef.id, usernameKey: userKey, email: userKey + "@ruhuikeraton.com", name: name, role: 'pembeli',
+                nik: nik, phone: phone, address: address, lat: window.buyerSelectedCoords.lat, lng: window.buyerSelectedCoords.lng,
+                password: pass, avatar: "", isActive: true, createdAt: new Date().toISOString()
+            });
+            showToast("Registrasi berhasil! Silakan login.");
+            switchAuthMode('login');
+        } catch(e) {
+            showToast("Gagal registrasi: " + e.message);
+        }
+        showLoading(false);
+    }
+
+    window.handleLogout = () => document.getElementById('logout-modal').classList.remove('hidden');
+    window.hideLogoutModal = () => document.getElementById('logout-modal').classList.add('hidden');
+    
+    window.executeLogout = async () => {
+        hideLogoutModal();
+        window.currentUser = null;
+        localStorage.removeItem('ruhui_user_session');
+        showToast("Berhasil keluar.");
+        navigate('profile');
+    }
+
+    window.handleResetPassword = async () => {
+        const userKey = document.getElementById('forgot-username').value.toLowerCase().replace(/\s+/g, '').trim();
+        const pass = document.getElementById('forgot-new-password').value.trim();
+        if(!userKey || !pass) return showToast("Masukkan Username dan Password Baru.");
+        const u = window.appData.users[userKey];
+        if(u) {
+            try {
+                await updateDoc(doc(db, window.getPath('users'), u.uid), { password: pass });
+                showToast("Password berhasil direset! Silakan login.");
+                document.getElementById('forgot-username').value = '';
+                document.getElementById('forgot-new-password').value = '';
+                switchAuthMode('login');
+            } catch(e) {
+                showToast("Gagal reset: " + e.message);
+            }
+        } else {
+            showToast("Username tidak ditemukan.");
+        }
+    };
+
+    window.adminSaveAdminUser = async () => {
+        const name = document.getElementById('new-admin-name').value.trim();
+        const userKey = document.getElementById('new-admin-user').value.toLowerCase().replace(/\s+/g, '');
+        const pass = document.getElementById('new-admin-pass').value.trim();
+
+        if(!name || !userKey || !pass) return showToast("Semua kolom wajib diisi!");
+        if(window.appData.users[userKey]) return showToast("Username sudah digunakan!");
+
+        showLoading(true);
+        try {
+            const newRef = doc(collection(db, window.getPath('users')));
+            await setDoc(newRef, {
+                uid: newRef.id, usernameKey: userKey, email: userKey + "@ruhuikeraton.com", name: name, role: 'admin', isActive: true, password: pass
+            });
+            closeAddAdminModal();
+            showToast(`Admin baru "${name}" berhasil didaftarkan!`);
+        } catch(e) { showToast("Gagal: " + e.message); }
+        showLoading(false);
+    }
+
+    window.adminSaveCourierUser = async () => {
+        const userKey = document.getElementById('courier-username').value.toLowerCase().replace(/\s+/g, '');
+        const name = document.getElementById('courier-name').value.trim();
+        const pass = document.getElementById('courier-pass').value.trim();
+        const vehNo = document.getElementById('courier-veh-no').value.trim();
+        const vehType = document.getElementById('courier-veh-type').value;
+        const nik = document.getElementById('courier-nik').value.trim();
+        const kk = document.getElementById('courier-kk').value.trim();
+        const photoFile = document.getElementById('courier-photo-file').files[0];
+
+        if(!userKey || !name || !pass || !nik) return showToast("Username, nama, password, NIK wajib diisi!");
+        if(window.appData.users[userKey]) return showToast("Username sudah dipakai!");
+
+        showLoading(true);
+        try {
+            let avatarBase64 = "";
+            if(photoFile) avatarBase64 = await compressImageToBase64(photoFile);
+
+            const newRef = doc(collection(db, window.getPath('users')));
+            await setDoc(newRef, {
+                uid: newRef.id, usernameKey: userKey, email: userKey + "@ruhuikeraton.com", name: name, role: 'kurir',
+                vehicleNo: vehNo, vehicleType: vehType, nik: nik, kk: kk, password: pass, avatar: avatarBase64, isActive: true
+            });
+            closeAddCourierModal();
+            showToast("Kurir baru berhasil didaftarkan!");
+        } catch(e) { showToast("Gagal: " + e.message); }
+        showLoading(false);
+    }
+
+    window.adminSaveVendorUser = async () => {
+        const userKey = document.getElementById('vendor-username').value.toLowerCase().replace(/\s+/g, '');
+        const name = document.getElementById('vendor-user-name').value.trim();
+        const pass = document.getElementById('vendor-user-pass').value.trim();
+        const shopName = document.getElementById('vendor-shop-name').value.trim();
+        const address = document.getElementById('vendor-address').value.trim();
+        const photoFile = document.getElementById('vendor-photo-file').files[0];
+
+        if(!userKey || !name || !pass || !shopName) return showToast("Lengkapi data pedagang!");
+        if(window.appData.users[userKey]) return showToast("Username sudah dipakai!");
+
+        showLoading(true);
+        try {
+            let photoUrl = "";
+            if(photoFile) photoUrl = await compressImageToBase64(photoFile);
+            else photoUrl = "https://placehold.co/400x200/166534/FFFFFF?text=" + encodeURIComponent(shopName);
+
+            const shopRef = doc(collection(db, window.getPath('shops')));
+            await setDoc(shopRef, {
+                shopId: shopRef.id, shopName: shopName, owner: name, description: "Kios pasar tradisional terdaftar.",
+                rating: 5.0, soldCount: 0, likes: 0, likedBy: [], image: photoUrl,
+                lat: window.vendorSelectedCoords.lat, lng: window.vendorSelectedCoords.lng, address: address,
+                paymentMethods: ["COD", "Transfer"]
+            });
+
+            const newRef = doc(collection(db, window.getPath('users')));
+            await setDoc(newRef, {
+                uid: newRef.id, usernameKey: userKey, email: userKey + "@ruhuikeraton.com", name: name, role: 'pedagang', shopId: shopRef.id,
+                password: pass, address: address, avatar: photoUrl, isActive: true
+            });
+            
+            closeAddVendorModal();
+            showToast("Pedagang dan Kios baru berhasil didaftarkan!");
+        } catch(e) { showToast("Gagal: " + e.message); }
+        showLoading(false);
+    }
+
+    window.navigate = (viewId, param = null) => {
+        document.querySelectorAll('.page-view').forEach(el => el.classList.add('hidden'));
+        document.querySelectorAll('nav .nav-item').forEach(el => { el.classList.remove('bottom-nav-active', 'scale-110'); el.classList.add('bottom-nav-inactive'); });
+        document.querySelectorAll('.desktop-nav').forEach(el => { el.classList.remove('border-green-600', 'font-bold', 'text-green-600', 'dark:border-green-400', 'dark:text-green-400', 'bg-transparent'); el.classList.add('border-transparent', 'bg-gray-100', 'dark:bg-gray-800', 'text-gray-700', 'dark:text-gray-200'); });
+        
+        document.getElementById(`view-${viewId}`).classList.remove('hidden');
+        
+        const navEl = document.getElementById(`nav-${viewId}`);
+        if(navEl) { navEl.classList.remove('bottom-nav-inactive'); navEl.classList.add('bottom-nav-active'); }
+        const deskNavEl = document.getElementById(`desktop-nav-${viewId}`);
+        if(deskNavEl) { deskNavEl.classList.remove('border-transparent', 'bg-gray-100', 'dark:bg-gray-800', 'text-gray-700', 'dark:text-gray-200'); deskNavEl.classList.add('border-green-600', 'font-bold', 'text-green-600', 'dark:border-green-400', 'dark:text-green-400', 'bg-transparent'); }
+
+        if(viewId === 'home') renderHome();
+        if(viewId === 'shops') renderShops();
+        if(viewId === 'shop-detail' && param) renderShopDetail(param);
+        if(viewId === 'chat') renderChatRooms();
+        if(viewId === 'cart') renderCart();
+        if(viewId === 'orders') renderOrders();
+        if(viewId === 'profile') { renderProfileState(); setTimeout(() => {if(window.initMapPicker) initMapPicker();}, 300); }
+        if(viewId === 'about') renderAbout();
+        window.scrollTo(0, 0);
+    }
+
+    window.toggleTheme = () => {
+        const wrapper = document.getElementById('ruhui-app-wrapper');
+        const icon = document.getElementById('theme-icon');
+        wrapper.classList.toggle('dark-mode');
+        if(wrapper.classList.contains('dark-mode')) { icon.classList.replace('fa-moon', 'fa-sun'); showToast("Mode Gelap Aktif"); } 
+        else { icon.classList.replace('fa-sun', 'fa-moon'); showToast("Mode Terang Aktif"); }
+    }
+    
+    window.toggleMobileSidebarDrawer = () => { const drawer = document.getElementById('mobile-sidebar-drawer'); if(drawer) drawer.classList.toggle('hidden'); }
+
+    window.switchAuthMode = (mode) => {
+        document.getElementById('form-login-pane').classList.add('hidden');
+        document.getElementById('form-register-pane').classList.add('hidden');
+        document.getElementById('form-forgot-pane').classList.add('hidden');
+
+        if(mode === 'login') {
+            document.getElementById('form-login-pane').classList.remove('hidden');
+            document.getElementById('auth-form-title').textContent = "Masuk Akun";
+            document.getElementById('auth-form-subtitle').textContent = "Masuk untuk mengakses akun pasar";
+        } else if(mode === 'register') {
+            document.getElementById('form-register-pane').classList.remove('hidden');
+            document.getElementById('auth-form-title').textContent = "Daftar Akun Pembeli";
+            document.getElementById('auth-form-subtitle').textContent = "Isi data NIK & titik peta untuk mulai belanja";
+            setTimeout(() => {if(window.initMapPicker) initMapPicker();}, 200);
+        } else if(mode === 'forgot') {
+            document.getElementById('form-forgot-pane').classList.remove('hidden');
+            document.getElementById('auth-form-title').textContent = "Lupa Password";
+            document.getElementById('auth-form-subtitle').textContent = "Reset sandi secara mandiri";
+        }
+    }
+
+    window.togglePasswordVisibility = (inputId, iconId) => {
+        const passInput = document.getElementById(inputId); const icon = document.getElementById(iconId);
+        if (passInput.type === 'password') { passInput.type = 'text'; icon.classList.replace('fa-eye-slash', 'fa-eye'); } 
+        else { passInput.type = 'password'; icon.classList.replace('fa-eye', 'fa-eye-slash'); }
+    }
+
+    window.openResetPasswordModal = (userKey) => {
+        const target = document.getElementById('reset-target-user');
+        const name = document.getElementById('reset-target-name');
+        if(target) target.value = userKey;
+        if(name && window.appData.users[userKey]) name.textContent = window.appData.users[userKey].name;
+        document.getElementById('reset-password-modal').classList.remove('hidden');
+    };
+    
+    window.closeResetPasswordModal = () => document.getElementById('reset-password-modal').classList.add('hidden');
+    
+    window.executeResetPassword = async () => {
+        const userKey = document.getElementById('reset-target-user').value;
+        const pass = document.getElementById('admin-new-pass').value.trim();
+        if(!pass) return showToast("Masukkan password baru.");
+        const u = window.appData.users[userKey];
+        if(u) {
+            try {
+                await updateDoc(doc(db, window.getPath('users'), u.uid), { password: pass });
+                closeResetPasswordModal(); 
+                showToast("Password berhasil direset secara instan!");
+                document.getElementById('admin-new-pass').value = '';
+            } catch(e) {
+                showToast("Gagal reset password: " + e.message);
+            }
+        } else {
+            showToast("Pengguna tidak ditemukan.");
+        }
+    };
+
+    window.toggleBlockUser = async (userKey) => {
+        const u = window.appData.users[userKey];
+        if(u) {
+            try {
+                await updateDoc(doc(db, window.getPath('users'), u.uid), { isActive: !u.isActive });
+                showToast(u.isActive ? "Akun berhasil diblokir." : "Akun berhasil dibuka.");
+            } catch(e) {
+                showToast("Gagal mengubah status: " + e.message);
+            }
+        } else {
+            showToast("Pengguna tidak ditemukan.");
+        }
+    };
+
     window.renderShops = () => {
         const container = document.getElementById('shops-container');
         if(!container) return;
@@ -908,7 +1326,7 @@
             return;
         }
 
-        orders = [...orders].reverse(); // Terakhir masuk paling atas
+        orders = [...orders].reverse();
 
         container.innerHTML = orders.map(o => `
             <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3">
@@ -1178,49 +1596,6 @@
     window.openAddVendorModal = () => { document.getElementById('add-vendor-modal').classList.remove('hidden'); setTimeout(()=> {if(window.initVendorMapPicker) initVendorMapPicker()}, 300); }
     window.closeAddVendorModal = () => document.getElementById('add-vendor-modal').classList.add('hidden');
 
-    window.openResetPasswordModal = (userKey) => {
-        const target = document.getElementById('reset-target-user');
-        const name = document.getElementById('reset-target-name');
-        if(target) target.value = userKey;
-        if(name && window.appData.users[userKey]) name.textContent = window.appData.users[userKey].name;
-        document.getElementById('reset-password-modal').classList.remove('hidden');
-    };
-    
-    window.closeResetPasswordModal = () => document.getElementById('reset-password-modal').classList.add('hidden');
-    
-    window.executeResetPassword = async () => {
-        const userKey = document.getElementById('reset-target-user').value;
-        const pass = document.getElementById('admin-new-pass').value.trim();
-        if(!pass) return showToast("Masukkan password baru.");
-        const u = window.appData.users[userKey];
-        if(u) {
-            try {
-                await updateDoc(doc(db, window.getPath('users'), u.uid), { password: pass });
-                closeResetPasswordModal(); 
-                showToast("Password berhasil direset!");
-                document.getElementById('admin-new-pass').value = '';
-            } catch(e) {
-                showToast("Gagal reset password: " + e.message);
-            }
-        } else {
-            showToast("Pengguna tidak ditemukan.");
-        }
-    };
-
-    window.toggleBlockUser = async (userKey) => {
-        const u = window.appData.users[userKey];
-        if(u) {
-            try {
-                await updateDoc(doc(db, window.getPath('users'), u.uid), { isActive: !u.isActive });
-                showToast(u.isActive ? "Akun berhasil diblokir." : "Akun berhasil dibuka.");
-            } catch(e) {
-                showToast("Gagal mengubah status: " + e.message);
-            }
-        } else {
-            showToast("Pengguna tidak ditemukan.");
-        }
-    };
-
     window.adminAddYear = async () => {
         const y = document.getElementById('new-year-input').value;
         if(!y) return;
@@ -1275,305 +1650,15 @@
         showToast("Pesanan diambil untuk diantar.");
     };
 
-    // ============================================
-    // FIREBASE INITIALIZATION & SYNC
-    // ============================================
-    window.onload = async () => {
-        showLoading(true);
-        // Force Anonymous Auth first to pass security rules for reading public data safely
-        try { await signInAnonymously(auth); } catch(e) { console.warn("Anon Auth Error", e); }
-        startFirebaseListeners();
-        
-        // Remove Splash after 1 sec
-        const splash = document.getElementById('ruhui-splash-v2');
-        const wrapper = document.getElementById('ruhui-app-wrapper');
-        if(wrapper) { wrapper.style.opacity = '1'; }
-        if(splash) { setTimeout(() => { splash.style.opacity = '0'; setTimeout(() => splash.remove(), 600); }, 1000); }
-        
-        showLoading(false);
-        navigate('home');
+    window.dismissPWA = () => {
+        document.getElementById('pwa-install-prompt').style.bottom = '-100%';
+        localStorage.setItem('pwa_dismissed', 'true');
     };
 
-    function startFirebaseListeners() {
-        const cols = ['users', 'shops', 'products', 'orders', 'categories', 'banners', 'reports', 'messages', 'years', 'settings'];
-        cols.forEach(c => {
-            onSnapshot(collection(db, window.getPath(c)), (snap) => {
-                const data = [];
-                snap.forEach(doc => data.push({ ...doc.data(), id: doc.id }));
-                
-                if (c === 'users') {
-                    window.appData.users = {};
-                    data.forEach(u => window.appData.users[u.usernameKey] = u);
-                    syncCurrentUser(); // Sync if logged in
-                    
-                    // PAKSA BUAT AKUN JIKA BELUM ADA
-                    if (!window.isSeedingAdmin && (!window.appData.users['superadmin'] || !window.appData.users['admin'])) {
-                        window.isSeedingAdmin = true;
-                        seedInitialData('admin');
-                    }
-                } else if (c === 'years') {
-                    window.appData.years = data.map(y => y.year).sort((a,b)=>b-a);
-                } else if (c === 'settings' && data.length > 0) {
-                    window.platformSettings = data[0];
-                    if(data[0].aboutText) window.dummyAboutText = data[0].aboutText;
-                    updateUIHeaders();
-                } else {
-                    window.appData[c] = data;
-                }
-                
-                // Seeding Data if empty
-                if (c === 'categories' && data.length === 0) seedInitialData('categories');
-                if (c === 'banners' && data.length === 0) seedInitialData('banners');
-                if (c === 'years' && data.length === 0) seedInitialData('years');
-                
-                refreshCurrentView();
-            }, (err) => { 
-                console.error("Firebase Sync Error", c, err); 
-                if (err.message.includes("Missing or insufficient permissions")) {
-                    showToast("Akses Database Ditolak! Harap perbarui Security Rules di Firebase.");
-                }
-            });
-        });
-    }
-
-    async function seedInitialData(type) {
-        try {
-            if (type === 'categories') {
-                const defCats = [
-                    {name: "Sayuran", icon: "fa-leaf", color: "bg-green-100 text-green-600"}, {name: "Daging", icon: "fa-drumstick-bite", color: "bg-red-100 text-red-600"},
-                    {name: "Ikan", icon: "fa-fish", color: "bg-blue-100 text-blue-600"}, {name: "Bumbu", icon: "fa-pepper-hot", color: "bg-orange-100 text-orange-600"},
-                    {name: "Sembako", icon: "fa-bowl-rice", color: "bg-yellow-100 text-yellow-600"}, {name: "Buah", icon: "fa-apple-whole", color: "bg-pink-100 text-pink-600"},
-                    {name: "Jajanan", icon: "fa-cookie", color: "bg-amber-100 text-amber-700"}, {name: "Kriya", icon: "fa-basket-shopping", color: "bg-purple-100 text-purple-600"}
-                ];
-                for(let i=0; i<defCats.length; i++) {
-                    await setDoc(doc(collection(db, window.getPath('categories'))), defCats[i]);
-                }
-            } else if (type === 'banners') {
-                await setDoc(doc(collection(db, window.getPath('banners'))), { url: "https://placehold.co/800x350/00AA5B/FFFFFF?text=Promo+Pasar+Tradisional", linkUrl: "", isVisible: true });
-            } else if (type === 'admin') {
-                
-                try {
-                    if (!window.appData.users['superadmin']) {
-                        const sRef = doc(collection(db, window.getPath('users')));
-                        await setDoc(sRef, { uid: sRef.id, usernameKey: 'superadmin', email: 'superadmin@ruhuikeraton.com', name: 'Bos Superadmin', role: 'superadmin', isActive: true, password: 'edudigital' });
-                    }
-                    if (!window.appData.users['admin']) {
-                        const aRef = doc(collection(db, window.getPath('users')));
-                        await setDoc(aRef, { uid: aRef.id, usernameKey: 'admin', email: 'admin@ruhuikeraton.com', name: 'Admin Support', role: 'admin', isActive: true, password: 'edudigital' });
-                    }
-                } catch(e) { console.log("Gagal membuat admin: ", e); }
-                window.isSeedingAdmin = false;
-
-            } else if (type === 'years') {
-                [2024, 2025, 2026].forEach(async y => { await setDoc(doc(db, window.getPath('years'), y.toString()), {year: y}); });
-                await setDoc(doc(db, window.getPath('settings'), 'core'), window.platformSettings);
-            }
-        } catch(e) { console.log("Seeding failed", e); }
-    }
-
-    function syncCurrentUser() {
-        if (window.currentUser) {
-            const u = window.appData.users[window.currentUser.usernameKey];
-            if (u) { 
-                window.currentUser = u; 
-                renderProfileState(); 
-            }
-        }
-    }
-
-    function updateUIHeaders() {
-        document.getElementById('app-name-display').textContent = window.platformSettings.name;
-        document.getElementById('app-tagline-display').textContent = window.platformSettings.tagline;
-        const logoRender = document.getElementById('app-logo-container');
-        logoRender.innerHTML = window.platformSettings.logoUrl ? `<img src="${window.platformSettings.logoUrl}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-store group-hover:animate-pulse"></i>`;
-    }
-
-    function refreshCurrentView() {
-        if(!document.getElementById('view-home').classList.contains('hidden')) renderHome();
-        if(!document.getElementById('view-shops').classList.contains('hidden')) renderShops();
-        if(!document.getElementById('view-orders').classList.contains('hidden')) renderOrders();
-        if(!document.getElementById('view-profile').classList.contains('hidden')) renderProfileState();
-        if(window.currentActiveShopId && !document.getElementById('view-shop-detail').classList.contains('hidden')) renderShopDetail(window.currentActiveShopId);
-        if(window.activePreviewProductId) openProductPreviewModal(window.activePreviewProductId);
-    }
-
-    // ============================================
-    // NAVIGATION & CORE UI
-    // ============================================
-    window.navigate = (viewId, param = null) => {
-        document.querySelectorAll('.page-view').forEach(el => el.classList.add('hidden'));
-        document.querySelectorAll('nav .nav-item').forEach(el => { el.classList.remove('bottom-nav-active', 'scale-110'); el.classList.add('bottom-nav-inactive'); });
-        document.querySelectorAll('.desktop-nav').forEach(el => { el.classList.remove('border-green-600', 'font-bold', 'text-green-600', 'dark:border-green-400', 'dark:text-green-400', 'bg-transparent'); el.classList.add('border-transparent', 'bg-gray-100', 'dark:bg-gray-800', 'text-gray-700', 'dark:text-gray-200'); });
-        
-        document.getElementById(`view-${viewId}`).classList.remove('hidden');
-        
-        const navEl = document.getElementById(`nav-${viewId}`);
-        if(navEl) { navEl.classList.remove('bottom-nav-inactive'); navEl.classList.add('bottom-nav-active'); }
-        const deskNavEl = document.getElementById(`desktop-nav-${viewId}`);
-        if(deskNavEl) { deskNavEl.classList.remove('border-transparent', 'bg-gray-100', 'dark:bg-gray-800', 'text-gray-700', 'dark:text-gray-200'); deskNavEl.classList.add('border-green-600', 'font-bold', 'text-green-600', 'dark:border-green-400', 'dark:text-green-400', 'bg-transparent'); }
-
-        if(viewId === 'home') renderHome();
-        if(viewId === 'shops') renderShops();
-        if(viewId === 'shop-detail' && param) renderShopDetail(param);
-        if(viewId === 'chat') renderChatRooms();
-        if(viewId === 'cart') renderCart();
-        if(viewId === 'orders') renderOrders();
-        if(viewId === 'profile') { renderProfileState(); setTimeout(() => initMapPicker(), 300); }
-        if(viewId === 'about') renderAbout();
-        window.scrollTo(0, 0);
-    }
-
-    window.toggleTheme = () => {
-        const wrapper = document.getElementById('ruhui-app-wrapper');
-        const icon = document.getElementById('theme-icon');
-        wrapper.classList.toggle('dark-mode');
-        if(wrapper.classList.contains('dark-mode')) { icon.classList.replace('fa-moon', 'fa-sun'); showToast("Mode Gelap Aktif"); } 
-        else { icon.classList.replace('fa-sun', 'fa-moon'); showToast("Mode Terang Aktif"); }
-    }
-    
-    window.toggleMobileSidebarDrawer = () => { const drawer = document.getElementById('mobile-sidebar-drawer'); if(drawer) drawer.classList.toggle('hidden'); }
-
-    window.switchAuthMode = (mode) => {
-        document.getElementById('form-login-pane').classList.add('hidden');
-        document.getElementById('form-register-pane').classList.add('hidden');
-        document.getElementById('form-forgot-pane').classList.add('hidden');
-
-        if(mode === 'login') {
-            document.getElementById('form-login-pane').classList.remove('hidden');
-            document.getElementById('auth-form-title').textContent = "Masuk Akun";
-            document.getElementById('auth-form-subtitle').textContent = "Masuk untuk mengakses akun pasar";
-        } else if(mode === 'register') {
-            document.getElementById('form-register-pane').classList.remove('hidden');
-            document.getElementById('auth-form-title').textContent = "Daftar Akun Pembeli";
-            document.getElementById('auth-form-subtitle').textContent = "Isi data NIK & titik peta untuk mulai belanja";
-            setTimeout(() => initMapPicker(), 200);
-        } else if(mode === 'forgot') {
-            document.getElementById('form-forgot-pane').classList.remove('hidden');
-            document.getElementById('auth-form-title').textContent = "Reset Password";
-            document.getElementById('auth-form-subtitle').textContent = "Hubungi Admin jika lupa";
-        }
-    }
-
-    window.togglePasswordVisibility = (inputId, iconId) => {
-        const passInput = document.getElementById(inputId); const icon = document.getElementById(iconId);
-        if (passInput.type === 'password') { passInput.type = 'text'; icon.classList.replace('fa-eye-slash', 'fa-eye'); } 
-        else { passInput.type = 'password'; icon.classList.replace('fa-eye', 'fa-eye-slash'); }
-    }
-
-    window.handleLogin = async () => {
-        const userKey = document.getElementById('login-username').value.toLowerCase().replace(/\s+/g, '').trim();
-        const pass = document.getElementById('login-password').value;
-        if(!userKey || !pass) return showToast("Lengkapi username & password!");
-
-        showLoading(true);
-        const email = userKey + "@ruhuikeraton.com";
-
-        // JALUR TOL KHUSUS SUPERADMIN & ADMIN (ANTI TENDANG)
-        if ((userKey === 'superadmin' || userKey === 'admin') && pass === 'edudigital') {
-            try {
-                let uid = "";
-                // 1. Coba login dulu, kalau gagal berarti belum terdaftar di Firebase Auth, maka buat baru.
-                try {
-                    const cred = await signInWithEmailAndPassword(auth, email, pass);
-                    uid = cred.user.uid;
-                } catch(e) {
-                    const cred2 = await createUserWithEmailAndPassword(auth, email, pass);
-                    uid = cred2.user.uid;
-                }
-
-                // 2. Tulis paksa ke Firestore agar datanya MUTLAK ada (memperbarui data)
-                const roleName = userKey === 'superadmin' ? 'superadmin' : 'admin';
-                const displayName = userKey === 'superadmin' ? 'Bos Superadmin' : 'Admin Support';
-                
-                await setDoc(doc(db, window.getPath('users'), uid), {
-                    uid: uid, usernameKey: userKey, email: email, name: displayName, role: roleName, isActive: true, password: pass
-                }, { merge: true });
-
-                // 3. PAKSA SUNTIKKAN ke variabel lokal agar sistem TIDAK menendang keluar saat loading
-                window.appData.users[userKey] = { uid: uid, usernameKey: userKey, email: email, name: displayName, role: roleName, isActive: true };
-                window.currentUser = window.appData.users[userKey];
-
-                showToast("Berhasil Masuk sebagai " + displayName);
-                showLoading(false);
-                renderProfileState(); // Paksa buka menu dashboard
-                return; // Berhenti di sini, jangan jalankan kode di bawah
-            } catch (err) {
-                showLoading(false);
-                return showToast("Gagal Bypass Admin: " + err.message);
-            }
-        }
-
-        // JALUR LOGIN NORMAL UNTUK PEMBELI / PEDAGANG / KURIR
-        try {
-            await signInWithEmailAndPassword(auth, email, pass);
-            setTimeout(() => {
-                if(window.appData.users[userKey] && !window.appData.users[userKey].isActive) {
-                    signOut(auth);
-                    showToast("Akun Anda diblokir oleh Admin.");
-                } else if (!window.appData.users[userKey]) {
-                    signOut(auth);
-                    showToast("Koneksi lambat. Silakan refresh halaman dan login lagi.");
-                } else {
-                    window.currentUser = window.appData.users[userKey]; // Pastikan state terisi dengan kuat
-                    showToast("Berhasil masuk!");
-                    renderProfileState();
-                }
-                showLoading(false);
-            }, 1000);
-        } catch(e) {
-            showLoading(false);
-            showToast("Login gagal! Periksa username/password.");
-        }
-    }
-
-    window.handleBuyerRegister = async () => {
-        const userKey = document.getElementById('reg-username').value.toLowerCase().replace(/\s+/g, '').trim();
-        const name = document.getElementById('reg-name').value.trim();
-        const phone = document.getElementById('reg-phone').value.trim();
-        const nik = document.getElementById('reg-nik').value.trim();
-        const address = document.getElementById('reg-address').value.trim();
-        const pass = document.getElementById('reg-password').value.trim();
-
-        if(!userKey || !name || !phone || !nik || !address || !pass) return showToast("Semua data pendaftaran wajib diisi!");
-        if(window.appData.users[userKey]) return showToast("Username sudah dipakai, cari yang lain!");
-
-        // Cek NIK
-        const userList = Object.values(window.appData.users);
-        if(userList.some(u => u.nik === nik)) return showToast("NIK sudah terdaftar! 1 NIK 1 Akun.");
-
-        showLoading(true);
-        try {
-            const email = userKey + "@ruhuikeraton.com";
-            const cred = await createUserWithEmailAndPassword(secondaryAuth, email, pass);
-            
-            await setDoc(doc(db, window.getPath('users'), cred.user.uid), {
-                uid: cred.user.uid, usernameKey: userKey, email: email, name: name, role: 'pembeli',
-                nik: nik, phone: phone, address: address, lat: window.buyerSelectedCoords.lat, lng: window.buyerSelectedCoords.lng,
-                password: pass, avatar: "", isActive: true, createdAt: new Date().toISOString()
-            });
-            await signOut(secondaryAuth);
-            
-            showToast("Registrasi berhasil! Silakan login.");
-            switchAuthMode('login');
-        } catch(e) {
-            showToast("Gagal registrasi: " + e.message);
-        }
-        showLoading(false);
-    }
-
-    window.showLogoutModal = () => document.getElementById('logout-modal').classList.remove('hidden');
-    window.hideLogoutModal = () => document.getElementById('logout-modal').classList.add('hidden');
-    window.handleLogout = () => showLogoutModal();
-    window.executeLogout = async () => {
-        hideLogoutModal();
-        try {
-            await signOut(auth);
-            window.currentUser = null;
-            await signInAnonymously(auth); // Fallback to anonymous
-            showToast("Berhasil keluar.");
-            navigate('profile');
-        } catch(e) { showToast("Gagal logout."); }
-    }
+    window.installPWA = () => {
+        dismissPWA();
+        alert("Panduan Instalasi:\n\n1. Ketuk ikon menu (titik tiga) di pojok kanan atas Chrome.\n2. Pilih 'Tambahkan ke Layar Utama' (Add to Home screen).\n3. Selesai! Ruhui Keraton siap digunakan dari layar HP Pian.");
+    };
 
     window.initMapPicker = () => {
         const container = document.getElementById('map-picker-container');
@@ -1844,7 +1929,7 @@
                     <button onclick="saveNewCategory()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl shadow-md text-sm mt-2 flex justify-center items-center gap-2"><i class="fa-solid fa-folder-plus"></i> Simpan Kategori Baru</button>
                 </div>
             `;
-            setTimeout(() => window.updateCategoryPreviewColor(), 100);
+            setTimeout(() => {if(window.updateCategoryPreviewColor) window.updateCategoryPreviewColor();}, 100);
         } else if(contentType === 'admin-banners') {
             contentArea.innerHTML = `
                 <div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg text-gray-800">Kelola Banner</h3><button onclick="openAddBannerModal()" class="theme-btn px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-plus"></i> Tambah Banner</button></div>
@@ -1922,7 +2007,7 @@
                 </div>
                 <div id="vendor-finance-data-container"></div>
             `;
-            window.updateVendorFinanceView();
+            if(window.updateVendorFinanceView) window.updateVendorFinanceView();
         } else if(contentType === 'vendor-bank') {
             const shop = window.appData.shops.find(s => s.shopId === window.currentUser.shopId);
             contentArea.innerHTML = `
@@ -2101,7 +2186,7 @@
     
     window.toggleAllPromo = () => { window.showAllPromo = !window.showAllPromo; renderHome(); }
 
-    function buildProductCard(p) {
+    window.buildProductCard = (p) => {
         const activePrice = p.isPromo ? p.promoPrice : p.price;
         const isLiked = window.currentUser && p.likedBy && p.likedBy.includes(window.currentUser.uid);
         const shop = window.appData.shops.find(s => s.shopId === p.shopId);
@@ -2137,96 +2222,6 @@
                 </div>
             </div>
         `;
-    }
-
-    window.adminSaveAdminUser = async () => {
-        const name = document.getElementById('new-admin-name').value.trim();
-        const userKey = document.getElementById('new-admin-user').value.toLowerCase().replace(/\s+/g, '');
-        const pass = document.getElementById('new-admin-pass').value.trim();
-
-        if(!name || !userKey || !pass) return showToast("Semua kolom wajib diisi!");
-        if(window.appData.users[userKey]) return showToast("Username sudah digunakan!");
-
-        showLoading(true);
-        try {
-            const email = userKey + "@ruhuikeraton.com";
-            const cred = await createUserWithEmailAndPassword(secondaryAuth, email, pass);
-            await setDoc(doc(db, window.getPath('users'), cred.user.uid), {
-                uid: cred.user.uid, usernameKey: userKey, email: email, name: name, role: 'admin', isActive: true, password: pass
-            });
-            await signOut(secondaryAuth);
-            closeAddAdminModal();
-            showToast(`Admin baru "${name}" berhasil didaftarkan!`);
-        } catch(e) { showToast("Gagal: " + e.message); }
-        showLoading(false);
-    }
-
-    window.adminSaveCourierUser = async () => {
-        const userKey = document.getElementById('courier-username').value.toLowerCase().replace(/\s+/g, '');
-        const name = document.getElementById('courier-name').value.trim();
-        const pass = document.getElementById('courier-pass').value.trim();
-        const vehNo = document.getElementById('courier-veh-no').value.trim();
-        const vehType = document.getElementById('courier-veh-type').value;
-        const nik = document.getElementById('courier-nik').value.trim();
-        const kk = document.getElementById('courier-kk').value.trim();
-        const photoFile = document.getElementById('courier-photo-file').files[0];
-
-        if(!userKey || !name || !pass || !nik) return showToast("Username, nama, password, NIK wajib diisi!");
-        
-        showLoading(true);
-        try {
-            const email = userKey + "@ruhuikeraton.com";
-            const cred = await createUserWithEmailAndPassword(secondaryAuth, email, pass);
-            let avatarBase64 = "";
-            if(photoFile) avatarBase64 = await compressImageToBase64(photoFile);
-
-            await setDoc(doc(db, window.getPath('users'), cred.user.uid), {
-                uid: cred.user.uid, usernameKey: userKey, email: email, name: name, role: 'kurir',
-                vehicleNo: vehNo, vehicleType: vehType, nik: nik, kk: kk, password: pass, avatar: avatarBase64, isActive: true
-            });
-            await signOut(secondaryAuth);
-            closeAddCourierModal();
-            showToast("Kurir baru berhasil didaftarkan!");
-        } catch(e) { showToast("Gagal: " + e.message); }
-        showLoading(false);
-    }
-
-    window.adminSaveVendorUser = async () => {
-        const userKey = document.getElementById('vendor-username').value.toLowerCase().replace(/\s+/g, '');
-        const name = document.getElementById('vendor-user-name').value.trim();
-        const pass = document.getElementById('vendor-user-pass').value.trim();
-        const shopName = document.getElementById('vendor-shop-name').value.trim();
-        const address = document.getElementById('vendor-address').value.trim();
-        const photoFile = document.getElementById('vendor-photo-file').files[0];
-
-        if(!userKey || !name || !pass || !shopName) return showToast("Lengkapi data pedagang!");
-
-        showLoading(true);
-        try {
-            const email = userKey + "@ruhuikeraton.com";
-            const cred = await createUserWithEmailAndPassword(secondaryAuth, email, pass);
-            let photoUrl = "";
-            if(photoFile) photoUrl = await compressImageToBase64(photoFile);
-            else photoUrl = "https://placehold.co/400x200/166534/FFFFFF?text=" + encodeURIComponent(shopName);
-
-            const shopRef = doc(collection(db, window.getPath('shops')));
-            await setDoc(shopRef, {
-                shopId: shopRef.id, shopName: shopName, owner: name, description: "Kios pasar tradisional terdaftar.",
-                rating: 5.0, soldCount: 0, likes: 0, likedBy: [], image: photoUrl,
-                lat: window.vendorSelectedCoords.lat, lng: window.vendorSelectedCoords.lng, address: address,
-                paymentMethods: ["COD", "Transfer"]
-            });
-
-            await setDoc(doc(db, window.getPath('users'), cred.user.uid), {
-                uid: cred.user.uid, usernameKey: userKey, email: email, name: name, role: 'pedagang', shopId: shopRef.id,
-                password: pass, address: address, avatar: photoUrl, isActive: true
-            });
-            
-            await signOut(secondaryAuth);
-            closeAddVendorModal();
-            showToast("Pedagang dan Kios baru berhasil didaftarkan!");
-        } catch(e) { showToast("Gagal: " + e.message); }
-        showLoading(false);
     }
 
     window.saveVendorProduct = async () => {
@@ -2267,6 +2262,10 @@
         }
     }
 
+    window.triggerProfileAvatarUpload = () => {
+        document.getElementById('profile-avatar-input').click();
+    }
+
     window.saveProfileSettings = async () => {
         if(!window.currentUser) return;
         const newName = document.getElementById('set-name').value.trim();
@@ -2287,7 +2286,7 @@
             await updateDoc(uRef, updateData);
             window.tempProfileAvatarBase64 = null;
             if(newPass) document.getElementById('set-password').value = '';
-            showToast("Profil diperbarui di Firebase!");
+            showToast("Profil diperbarui!");
         } catch(e) { showToast("Gagal update profil: " + e.message); }
         showLoading(false);
     }
@@ -2386,7 +2385,7 @@
         if (!product) return;
         const existingItem = window.cart.find(item => item.product.id === productId);
         if (existingItem) existingItem.qty += 1; else window.cart.push({ product: product, qty: 1, selected: true });
-        updateCartBadge(); showToast(`${product.name} masuk keranjang!`);
+        window.updateCartBadge(); showToast(`${product.name} masuk keranjang!`);
     }
 
     window.updateCartBadge = () => {
@@ -2416,13 +2415,13 @@
                 </div>
             `).join('')}</div></div>
         `).join('');
-        updateCartTotal(); toggleCheckoutPaymentDetails();
+        window.updateCartTotal(); window.toggleCheckoutPaymentDetails();
     }
     
-    window.toggleCartItem = (i) => { window.cart[i].selected = !window.cart[i].selected; if(window.cart[i].selected) window.cart.forEach((c, idx) => { if(idx !== i && c.product.shopId !== window.cart[i].product.shopId) c.selected = false; }); renderCart(); }
-    window.updateCartQty = (i, d) => { if(window.cart[i].qty + d > 0) { window.cart[i].qty += d; renderCart(); updateCartBadge(); } else removeFromCart(i); }
-    window.removeFromCart = (i) => { window.cart.splice(i, 1); renderCart(); updateCartBadge(); }
-    window.clearEntireCart = () => { window.cart = []; renderCart(); updateCartBadge(); }
+    window.toggleCartItem = (i) => { window.cart[i].selected = !window.cart[i].selected; if(window.cart[i].selected) window.cart.forEach((c, idx) => { if(idx !== i && c.product.shopId !== window.cart[i].product.shopId) c.selected = false; }); window.renderCart(); }
+    window.updateCartQty = (i, d) => { if(window.cart[i].qty + d > 0) { window.cart[i].qty += d; window.renderCart(); window.updateCartBadge(); } else window.removeFromCart(i); }
+    window.removeFromCart = (i) => { window.cart.splice(i, 1); window.renderCart(); window.updateCartBadge(); }
+    window.clearEntireCart = () => { window.cart = []; window.renderCart(); window.updateCartBadge(); }
     window.updateCartTotal = () => { document.getElementById('cart-total').textContent = formatRupiah(window.cart.reduce((s, i) => s + (i.selected ? (i.product.isPromo ? i.product.promoPrice : i.product.price) * i.qty : 0), 0)); }
 
     window.toggleCheckoutPaymentDetails = () => {
@@ -2462,7 +2461,7 @@
                 transferProof: proofB64, deliveryProof: '', date: new Date().toLocaleDateString('id-ID')
             });
             window.cart = window.cart.filter(i => !i.selected);
-            updateCartBadge(); navigate('orders'); showToast("Pesanan Dibuat di Firebase!");
+            window.updateCartBadge(); navigate('orders'); showToast("Pesanan Dibuat!");
         } catch(e) { showToast("Gagal Checkout!"); }
         showLoading(false);
     }
@@ -2492,7 +2491,7 @@
         const comment = document.getElementById('review-comment').value.trim();
         
         await updateDoc(doc(db, window.getPath('orders'), id), { review: { shopRating: sr, productRating: pr, comment } });
-        closeReviewModal(); showToast("Terima Kasih atas Ulasannya!");
+        window.closeReviewModal(); showToast("Terima Kasih atas Ulasannya!");
     }
 </script>
 
