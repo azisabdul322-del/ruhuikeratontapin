@@ -918,11 +918,23 @@
                     window.platformSettings = data[0];
                     if(data[0].aboutText) window.dummyAboutText = data[0].aboutText;
                     updateUIHeaders();
+                } else if (c === 'categories') {
+                    // Mencegah duplikasi kategori yang tampil di layar
+                    const uniqueCats = [];
+                    const seenNames = new Set();
+                    data.forEach(cat => {
+                        const nameLower = cat.name.toLowerCase();
+                        if(!seenNames.has(nameLower)) {
+                            seenNames.add(nameLower);
+                            uniqueCats.push(cat);
+                        }
+                    });
+                    window.appData[c] = uniqueCats;
                 } else {
                     window.appData[c] = data;
                 }
                 
-                if (c === 'categories' && data.length === 0) seedInitialData('categories');
+                if (c === 'categories' && window.appData.categories.length === 0) seedInitialData('categories');
                 if (c === 'banners' && data.length === 0) seedInitialData('banners');
                 if (c === 'years' && data.length === 0) seedInitialData('years');
                 if (c === 'shippingRates' && data.length === 0) seedInitialData('shippingRates');
@@ -944,7 +956,8 @@
                     {name: "Jajanan", icon: "fa-cookie", color: "bg-amber-100 text-amber-700"}, {name: "Kriya", icon: "fa-basket-shopping", color: "bg-purple-100 text-purple-600"}
                 ];
                 for(let i=0; i<defCats.length; i++) {
-                    await setDoc(doc(collection(db, window.getPath('categories'))), defCats[i]);
+                    const catId = defCats[i].name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                    await setDoc(doc(db, window.getPath('categories'), catId), defCats[i]);
                 }
             } else if (type === 'banners') {
                 await setDoc(doc(collection(db, window.getPath('banners'))), { url: "https://placehold.co/800x350/00AA5B/FFFFFF?text=Promo+Pasar+Tradisional", linkUrl: "", isVisible: true });
@@ -2533,11 +2546,67 @@
     window.openAddBannerModal = () => document.getElementById('add-banner-modal').classList.remove('hidden');
     window.closeAddBannerModal = () => document.getElementById('add-banner-modal').classList.add('hidden');
 
-    window.openIconPickerModal = () => document.getElementById('icon-picker-modal').classList.remove('hidden');
+    window.openIconPickerModal = () => {
+        const container = document.getElementById('icon-grid-container');
+        if (container && container.children.length === 0) {
+            const icons = ['fa-leaf', 'fa-drumstick-bite', 'fa-fish', 'fa-pepper-hot', 'fa-bowl-rice', 'fa-apple-whole', 'fa-cookie', 'fa-basket-shopping', 'fa-shirt', 'fa-car', 'fa-mobile-screen', 'fa-blender', 'fa-gem', 'fa-glasses', 'fa-shoe-prints', 'fa-hat-cowboy', 'fa-mug-hot', 'fa-burger', 'fa-pizza-slice', 'fa-ice-cream', 'fa-seedling', 'fa-carrot', 'fa-cheese', 'fa-bread-slice', 'fa-egg', 'fa-bottle-water', 'fa-box', 'fa-pump-soap'];
+            container.innerHTML = icons.map(icon => `
+                <div class="flex items-center justify-center p-3 bg-white rounded-xl shadow-sm border cursor-pointer hover:bg-green-50 hover:border-green-300 transition-colors text-2xl text-gray-700" onclick="selectCategoryIcon('${icon}')">
+                    <i class="fa-solid ${icon}"></i>
+                </div>
+            `).join('');
+        }
+        document.getElementById('icon-picker-modal').classList.remove('hidden');
+    };
+
     window.closeIconPickerModal = () => document.getElementById('icon-picker-modal').classList.add('hidden');
-    window.filterIconPicker = () => {};
-    window.updateCategoryPreviewColor = () => {};
-    window.saveNewCategory = () => {};
+
+    window.selectCategoryIcon = (iconClass) => {
+        window.currentSelectedCatIcon = iconClass;
+        const iconEl = document.getElementById('new-cat-icon-element');
+        if(iconEl) iconEl.className = `fa-solid ${iconClass}`;
+        closeIconPickerModal();
+    };
+
+    window.filterIconPicker = () => {
+        const query = document.getElementById('icon-search-input').value.toLowerCase();
+        const container = document.getElementById('icon-grid-container');
+        if(container) {
+            Array.from(container.children).forEach(child => {
+                const iconClass = child.querySelector('i').className;
+                child.style.display = iconClass.includes(query) ? 'flex' : 'none';
+            });
+        }
+    };
+
+    window.updateCategoryPreviewColor = () => {
+        const select = document.getElementById('new-category-color-select');
+        const preview = document.getElementById('new-cat-icon-preview');
+        if(select && preview) {
+            window.currentSelectedCatColor = select.value;
+            preview.className = `w-16 h-16 rounded-2xl ${window.currentSelectedCatColor} flex items-center justify-center text-3xl border border-white shadow-sm transition-all`;
+        }
+    };
+
+    window.saveNewCategory = async () => {
+        const name = document.getElementById('new-category-name').value.trim();
+        if(!name) return showToast("Nama kategori tidak boleh kosong!");
+        
+        showLoading(true);
+        try {
+            const catId = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            await setDoc(doc(db, window.getPath('categories'), catId), {
+                name: name,
+                icon: window.currentSelectedCatIcon,
+                color: window.currentSelectedCatColor
+            });
+            showToast("Kategori baru berhasil ditambahkan!");
+            document.getElementById('new-category-name').value = '';
+        } catch(e) {
+            showToast("Gagal menyimpan kategori.");
+        }
+        showLoading(false);
+    };
 
     window.dismissPWA = () => {
         document.getElementById('pwa-install-prompt').style.bottom = '-100%';
