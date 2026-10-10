@@ -2708,6 +2708,144 @@
         } catch(e) { showToast("Gagal menyimpan pengaturan bank: " + e.message); }
         showLoading(false);
     };
+
+    // ==========================================
+    // SISTEM KERANJANG & PREVIEW PRODUK 
+    // ==========================================
+    window.addToCart = (productId) => {
+        const p = window.appData.products.find(x => x.id === productId);
+        if (!p) return;
+        
+        let existing = window.cart.find(i => i.product.id === productId);
+        if (existing) {
+            existing.qty += 1;
+        } else {
+            window.cart.push({ product: p, qty: 1, selected: true });
+        }
+        window.updateCartBadge();
+        showToast(p.name + " masuk keranjang!");
+    };
+
+    window.updateCartBadge = () => {
+        const total = window.cart.reduce((sum, item) => sum + item.qty, 0);
+        const b1 = document.getElementById('cart-badge');
+        const b2 = document.getElementById('desktop-cart-badge');
+        if (b1) { b1.textContent = total; b1.classList.toggle('hidden', total === 0); }
+        if (b2) { b2.textContent = total; b2.classList.toggle('hidden', total === 0); }
+    };
+
+    window.openProductPreviewModal = (id) => {
+        window.activePreviewProductId = id;
+        const p = window.appData.products.find(x => x.id === id);
+        if(!p) return;
+        
+        document.getElementById('preview-prod-img').src = p.image;
+        document.getElementById('preview-prod-name').textContent = p.name;
+        document.getElementById('preview-prod-category').textContent = p.category;
+        
+        const activePrice = p.isPromo ? p.promoPrice : p.price;
+        document.getElementById('preview-prod-price').textContent = formatRupiah(activePrice);
+        document.getElementById('preview-prod-strike').textContent = (p.isPromo || p.strikethroughPrice) ? formatRupiah(p.strikethroughPrice || p.price) : '';
+        
+        document.getElementById('preview-prod-rating').textContent = p.rating || 0;
+        document.getElementById('preview-prod-sold').textContent = p.soldCount || 0;
+        document.getElementById('preview-prod-likes').textContent = p.likes || 0;
+        
+        const badge = document.getElementById('preview-prod-promo-badge');
+        if(badge) badge.classList.toggle('hidden', !p.isPromo);
+        
+        const shop = window.appData.shops.find(s => s.shopId === p.shopId);
+        document.getElementById('preview-prod-shop').textContent = shop ? shop.shopName : p.shopName;
+        const shopImg = document.getElementById('preview-prod-shop-img');
+        const shopIcon = document.getElementById('preview-prod-shop-icon');
+        if(shop && shop.image) {
+            shopImg.src = shop.image; shopImg.classList.remove('hidden'); shopIcon.classList.add('hidden');
+        } else {
+            shopImg.classList.add('hidden'); shopIcon.classList.remove('hidden');
+        }
+
+        const isLiked = window.currentUser && p.likedBy && p.likedBy.includes(window.currentUser.uid);
+        const likeIcon = document.getElementById('preview-like-icon');
+        if(likeIcon) {
+            if(isLiked) likeIcon.classList.replace('fa-regular', 'fa-solid');
+            else likeIcon.classList.replace('fa-solid', 'fa-regular');
+            likeIcon.classList.toggle('text-red-500', isLiked);
+        }
+        
+        document.getElementById('product-preview-modal').classList.remove('hidden');
+    };
+
+    window.closeProductPreviewModal = () => document.getElementById('product-preview-modal').classList.add('hidden');
+
+    window.previewAddToCartFromModal = () => {
+        if(window.activePreviewProductId) {
+            window.addToCart(window.activePreviewProductId);
+            window.closeProductPreviewModal();
+        }
+    };
+    
+    window.toggleCheckoutPaymentDetails = () => {
+        const method = document.getElementById('checkout-payment-method').value;
+        const box = document.getElementById('checkout-bank-details-box');
+        if(method === 'Transfer' && window.cart.length > 0) {
+            box.classList.remove('hidden');
+            const shopId = window.cart[0].product.shopId;
+            const shop = window.appData.shops.find(s => s.shopId === shopId);
+            document.getElementById('checkout-bank-info-render').innerHTML = shop && shop.bankName ? `<b>${shop.bankName}</b> - ${shop.bankAccount}` : 'Belum ada info rekening kios.';
+            document.getElementById('checkout-qris-render').innerHTML = shop && shop.qrisUrl ? `<img src="${shop.qrisUrl}" class="w-32 h-32 object-cover rounded-lg border mt-2">` : '';
+        } else {
+            box.classList.add('hidden');
+        }
+    };
+
+    // ==========================================
+    // SISTEM ULASAN & RATING
+    // ==========================================
+    window.openReviewModal = (id) => {
+        const order = window.appData.orders.find(o => o.id === id);
+        if(!order) return;
+        document.getElementById('review-order-id').value = id;
+        document.getElementById('review-courier-box').classList.toggle('hidden', !order.courierUid);
+        document.getElementById('review-modal').classList.remove('hidden');
+    };
+    
+    window.closeReviewModal = () => document.getElementById('review-modal').classList.add('hidden');
+    
+    window.submitOrderReview = async () => {
+        const id = document.getElementById('review-order-id').value;
+        const order = window.appData.orders.find(o => o.id === id);
+        if(!order) return;
+        
+        const shopRating = parseInt(document.getElementById('review-shop-rating').value);
+        const prodRating = parseInt(document.getElementById('review-product-rating').value);
+        const comment = document.getElementById('review-comment').value.trim();
+        
+        showLoading(true);
+        try {
+            await updateDoc(doc(db, window.getPath('orders'), id), { review: true });
+            
+            const shop = window.appData.shops.find(s => s.shopId === order.shopId);
+            if(shop) {
+                let newRating = shop.rating ? ((shop.rating + shopRating) / 2).toFixed(1) : shopRating;
+                let coms = shop.comments || [];
+                if(comment) coms.push({ sender: window.currentUser.name, text: comment, time: new Date().toLocaleDateString('id-ID') });
+                await updateDoc(doc(db, window.getPath('shops'), order.shopId), { rating: parseFloat(newRating), comments: coms });
+            }
+            
+            for(let item of order.items) {
+                const p = window.appData.products.find(x => x.id === item.product.id);
+                if(p) {
+                    let pRating = p.rating ? ((p.rating + prodRating) / 2).toFixed(1) : prodRating;
+                    let sold = (p.soldCount || 0) + item.qty;
+                    await updateDoc(doc(db, window.getPath('products'), p.id), { rating: parseFloat(pRating), soldCount: sold });
+                }
+            }
+            
+            closeReviewModal();
+            showToast("Terima kasih atas ulasan Pian!");
+        } catch(e) { showToast("Gagal mengirim ulasan."); }
+        showLoading(false);
+    };
 </script>
 
 </body>
