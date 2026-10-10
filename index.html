@@ -427,7 +427,6 @@
         </div>
     </div>
 
-    <!-- Modal Admin, Courier, Vendor -->
     <div id="add-admin-modal" class="hidden fixed inset-0 bg-black/60 z-[9999] flex justify-center items-center backdrop-blur-sm p-4">
         <div class="bg-white w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl flex flex-col">
             <div class="bg-emerald-600 text-white p-4 flex justify-between items-center"><h3 class="font-bold text-lg"><i class="fa-solid fa-user-shield mr-2"></i>Tambah Admin Baru</h3><i class="fa-solid fa-xmark text-xl cursor-pointer p-1" onclick="closeAddAdminModal()"></i></div>
@@ -556,6 +555,30 @@
                     <textarea id="review-comment" rows="3" placeholder="Tuliskan ulasan pengalaman belanja Pian secara keseluruhan..." class="w-full p-2.5 border rounded-xl text-sm outline-none"></textarea>
                 </div>
                 <button onclick="submitOrderReview()" class="w-full theme-btn font-bold py-3 rounded-xl shadow mt-2">Kirim Semua Penilaian</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Penyelesaian Pengantaran Kurir Baru -->
+    <div id="courier-completion-modal" class="hidden fixed inset-0 bg-black/60 z-[9999] flex justify-center items-center backdrop-blur-sm p-4">
+        <div class="bg-white w-full max-w-md rounded-3xl overflow-hidden shadow-2xl flex flex-col">
+            <div class="bg-emerald-600 text-white p-4 flex justify-between items-center">
+                <h3 class="font-bold text-lg"><i class="fa-solid fa-check-double mr-2"></i>Selesaikan Pengantaran</h3>
+                <i class="fa-solid fa-xmark text-xl cursor-pointer p-1" onclick="closeCourierCompletionModal()"></i>
+            </div>
+            <div class="p-5 flex flex-col gap-3">
+                <input type="hidden" id="completion-order-id">
+                <input type="hidden" id="completion-payment-method">
+                <p class="text-xs text-gray-500 mb-2">Pastikan pesanan telah diserahkan. Silakan isi data penerima dan bukti foto.</p>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Nama Penerima</label>
+                    <input type="text" id="courier-recipient-name" placeholder="Misal: Bapak Budi / Satpam" class="w-full p-2.5 border rounded-xl text-sm outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Upload Bukti Terima (Foto Barang/Penerima)</label>
+                    <input type="file" id="courier-proof-file" accept="image/*" class="w-full p-2 border rounded-xl text-xs bg-gray-50">
+                </div>
+                <button onclick="submitCourierCompletion()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow mt-2">Kirim & Selesaikan Pesanan</button>
             </div>
         </div>
     </div>
@@ -725,7 +748,6 @@
     <input type="file" id="app-logo-upload-input" accept="image/*" class="hidden" onchange="handleAppLogoUpload(event)">
     <input type="file" id="vendor-qris-upload-input" accept="image/*" class="hidden" onchange="handleVendorQrisUpload(event)">
     <input type="file" id="product-image-file-input" accept="image/*" class="hidden" onchange="handleProductImageFile(event)">
-    <input type="file" id="courier-delivery-proof-input" accept="image/*" class="hidden" onchange="handleCourierProofUpload(event)">
     <input type="file" id="buyer-cod-proof-input" accept="image/*" class="hidden" onchange="handleBuyerCODProofUpload(event)">
 
 </div>
@@ -757,7 +779,7 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // Mendaftarkan fungsi Firebase ke global agar bisa dieksekusi tombol HTML
+    // Mendaftarkan fungsi Firebase ke global agar bisa dieksekusi tombol HTML (Anti-Error)
     window.db = db;
     window.doc = doc;
     window.collection = collection;
@@ -921,14 +943,6 @@
                 window.currentUser = null;
                 localStorage.removeItem('ruhui_user_session');
                 renderProfileState();
-                showToast("Sesi berakhir atau akun diblokir.");
-            }
-        } else if(window.currentUser) {
-            const u = window.appData.users[window.currentUser.usernameKey];
-            if(!u || !u.isActive) {
-                window.currentUser = null;
-                localStorage.removeItem('ruhui_user_session');
-                renderProfileState();
             }
         }
     }
@@ -1025,7 +1039,9 @@
         const u = window.appData.users[userKey];
         if(u) {
             try {
-                await updateDoc(doc(db, window.getPath('users'), u.uid), { password: pass });
+                if(window.updateDoc) {
+                    await updateDoc(doc(db, window.getPath('users'), u.uid), { password: pass });
+                }
                 showToast("Password berhasil direset! Silakan login.");
                 document.getElementById('forgot-username').value = '';
                 document.getElementById('forgot-new-password').value = '';
@@ -1340,6 +1356,8 @@
                     <div><b>Total:</b> <span class="font-bold text-green-700">${formatRupiah(o.totalAmount)}</span> (${o.paymentMethod})</div>
                     <div><b>Status:</b> <span class="font-bold text-blue-600">${o.status}</span></div>
                     ${o.courierName ? `<div><b>Kurir:</b> ${o.courierName}</div>` : ''}
+                    ${o.recipientName ? `<div><b>Penerima:</b> ${o.recipientName}</div>` : ''}
+                    ${o.deliveryProof ? `<div><b>Bukti Pengantaran:</b> <a href="#" onclick="openImageLightbox('${o.deliveryProof}'); return false;" class="text-blue-600 font-bold hover:underline">Lihat Foto</a></div>` : ''}
                 </div>
                 <div class="border-t pt-3 flex flex-wrap justify-end gap-2">
                     ${window.currentUser.role === 'admin' && (o.status === 'Menunggu Konfirmasi Pembayaran' || o.status === 'Menunggu Konfirmasi Kios') ? `<button onclick="vendorActionOrder('${o.id}', 'Diproses', 'Pembayaran Dikonfirmasi')" class="theme-btn text-xs px-3 py-1.5 rounded-lg shadow-sm">Konfirmasi Bayar</button>` : ''}
@@ -1349,9 +1367,9 @@
                     ${window.currentUser.role === 'kurir' && o.status === 'Menunggu Kurir' ? `<button onclick="takeCourierOrder('${o.id}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Ambil Tugas Umum</button>` : ''}
                     ${window.currentUser.role === 'kurir' && o.courierUid === window.currentUser.uid && o.status === 'Menunggu Konfirmasi Kurir' ? `<button onclick="updateOrderStatus('${o.id}', 'Menuju ke Toko/Penjual', 'Pengantaran diterima, silakan menuju toko')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Terima Pengantaran</button>` : ''}
                     ${window.currentUser.role === 'kurir' && o.courierUid === window.currentUser.uid && o.status === 'Menuju ke Toko/Penjual' ? `<button onclick="updateOrderStatus('${o.id}', 'Pesanan Dalam Perjalanan', 'Status: Mengantar ke pembeli')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Pesanan Dalam Perjalanan</button>` : ''}
-                    ${window.currentUser.role === 'kurir' && o.courierUid === window.currentUser.uid && (o.status === 'Pesanan Dalam Perjalanan' || o.status === 'Sedang Diantar') ? `<button onclick="triggerCourierDeliveryProof('${o.id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Pesanan Diterima Pembeli</button>` : ''}
+                    ${window.currentUser.role === 'kurir' && o.courierUid === window.currentUser.uid && (o.status === 'Pesanan Dalam Perjalanan' || o.status === 'Sedang Diantar') ? `<button onclick="openCourierCompletionModal('${o.id}', '${o.paymentMethod}')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Pesanan Diterima Pembeli</button>` : ''}
                     
-                    ${window.currentUser.role === 'pembeli' && o.status.includes('Menunggu Konfirmasi Pembayaran COD') ? `<button onclick="buyerConfirmReceived('${o.id}')" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Pesanan Diterima</button>` : ''}
+                    ${window.currentUser.role === 'pembeli' && o.status.includes('Menunggu Konfirmasi Pembayaran COD') ? `<button onclick="buyerConfirmReceived('${o.id}')" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Konfirmasi Pembayaran COD</button>` : ''}
                     ${window.currentUser.role === 'pembeli' && o.status === 'Selesai' && !o.review ? `<button onclick="openReviewModal('${o.id}')" class="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Beri Ulasan</button>` : ''}
                 </div>
             </div>
@@ -1395,6 +1413,47 @@
         }
     };
 
+    window.openCourierCompletionModal = (id, method) => {
+        document.getElementById('completion-order-id').value = id;
+        document.getElementById('completion-payment-method').value = method;
+        document.getElementById('courier-recipient-name').value = '';
+        document.getElementById('courier-proof-file').value = '';
+        document.getElementById('courier-completion-modal').classList.remove('hidden');
+    };
+
+    window.closeCourierCompletionModal = () => {
+        document.getElementById('courier-completion-modal').classList.add('hidden');
+    };
+
+    window.submitCourierCompletion = async () => {
+        const id = document.getElementById('completion-order-id').value;
+        const method = document.getElementById('completion-payment-method').value;
+        const name = document.getElementById('courier-recipient-name').value.trim();
+        const file = document.getElementById('courier-proof-file').files[0];
+
+        if(!name) return showToast("Nama penerima wajib diisi!");
+        if(!file) return showToast("Bukti foto wajib diupload!");
+
+        showLoading(true);
+        try {
+            const b64 = await compressImageToBase64(file);
+            const newStatus = method === 'COD' ? 'Menunggu Konfirmasi Pembayaran COD' : 'Selesai';
+            await updateDoc(doc(db, window.getPath('orders'), id), {
+                deliveryProof: b64,
+                recipientName: name,
+                status: newStatus
+            });
+            closeCourierCompletionModal();
+            showToast("Pengantaran Selesai!");
+        } catch(e) {
+            showToast("Gagal mengupload: " + e.message);
+        }
+        showLoading(false);
+    };
+
+    window.vendorActionOrder = async (orderId, newStatus, msg) => { await updateDoc(doc(db, window.getPath('orders'), orderId), { status: newStatus }); showToast(msg); }
+    window.buyerConfirmReceived = async (orderId) => { await updateDoc(doc(db, window.getPath('orders'), orderId), { status: 'Selesai' }); showToast("Pesanan Selesai!"); }
+    
     window.renderChatRooms = () => {
         const list = document.getElementById('chat-rooms-list');
         if(!list) return;
@@ -2236,35 +2295,6 @@
         `;
     }
 
-    window.saveVendorProduct = async () => {
-        const id = document.getElementById('edit-product-id').value;
-        const name = document.getElementById('prod-name').value.trim();
-        const costPrice = parseInt(document.getElementById('prod-cost-price').value) || 0;
-        const price = parseInt(document.getElementById('prod-price').value) || 0;
-        const strikethroughPrice = parseInt(document.getElementById('prod-strikethrough-price').value) || 0;
-        const isPromo = document.getElementById('prod-is-promo').checked;
-        const promoPrice = parseInt(document.getElementById('prod-promo-price').value) || 0;
-        const unit = document.getElementById('prod-unit').value.trim() || 'kg';
-        const category = document.getElementById('prod-category').value;
-        const image = window.tempProductImageUrl || 'https://placehold.co/400x300/166534/FFFFFF?text=Produk';
-
-        if(!name || price <= 0) return showToast("Nama dan harga jual wajib diisi!");
-        showLoading(true);
-        try {
-            const pRef = id ? doc(db, window.getPath('products'), id) : doc(collection(db, window.getPath('products')));
-            const shop = window.appData.shops.find(s => s.shopId === window.currentUser.shopId);
-            const data = {
-                id: pRef.id, shopId: window.currentUser.shopId, shopName: shop ? shop.shopName : 'Kios',
-                name, costPrice, price, strikethroughPrice, isPromo, promoPrice, unit, category, image
-            };
-            if(!id) { data.rating = 5.0; data.soldCount = 0; data.likes = 0; data.likedBy = []; data.comments = []; }
-            await setDoc(pRef, data, {merge:true});
-            closeProductModal();
-            showToast("Produk berhasil disimpan!");
-        } catch(e) { showToast("Gagal: " + e.message); }
-        showLoading(false);
-    }
-
     window.handleProfileAvatarUpload = async (e) => {
         const file = e.target.files[0];
         if(file) {
@@ -2476,22 +2506,6 @@
             window.updateCartBadge(); navigate('orders'); showToast("Pesanan Dibuat!");
         } catch(e) { showToast("Gagal Checkout!"); }
         showLoading(false);
-    }
-
-    window.vendorActionOrder = async (orderId, newStatus, msg) => { await updateDoc(doc(db, window.getPath('orders'), orderId), { status: newStatus }); showToast(msg); }
-    window.buyerConfirmReceived = async (orderId) => { await updateDoc(doc(db, window.getPath('orders'), orderId), { status: 'Selesai' }); showToast("Pesanan Selesai!"); }
-    
-    window.triggerCourierDeliveryProof = (id) => { window.activeCourierOrderId = id; document.getElementById('courier-delivery-proof-input').click(); }
-    window.handleCourierProofUpload = async (e) => {
-        const file = e.target.files[0];
-        if(file && window.activeCourierOrderId) {
-            showLoading(true);
-            const b64 = await compressImageToBase64(file);
-            const o = window.appData.orders.find(x => x.id === window.activeCourierOrderId);
-            const newStatus = o.paymentMethod === 'COD' ? 'Menunggu Konfirmasi Pembayaran COD' : 'Selesai';
-            await updateDoc(doc(db, window.getPath('orders'), o.id), { deliveryProof: b64, status: newStatus });
-            showLoading(false); showToast("Bukti sampai diunggah!");
-        }
     }
 
     window.openReviewModal = (id) => { document.getElementById('review-order-id').value = id; document.getElementById('review-modal').classList.remove('hidden'); }
