@@ -2568,6 +2568,105 @@
             window.closeReviewModal(); showToast("Terima Kasih atas Ulasannya!");
         } catch(e) {}
     }
+
+    // ==========================================
+    // FUNGSI UPLOAD & SIMPAN PENGATURAN PROFIL / APLIKASI
+    // ==========================================
+    window.triggerProfileAvatarUpload = () => { document.getElementById('profile-avatar-input').click(); };
+    
+    window.handleProfileAvatarUpload = async (e) => {
+        const file = e.target.files[0];
+        if(file && window.compressImageToBase64) {
+            window.tempProfileAvatarBase64 = await compressImageToBase64(file);
+            const preview = document.getElementById('profile-avatar-preview');
+            if(preview) preview.innerHTML = `<img src="${window.tempProfileAvatarBase64}" class="w-full h-full object-cover">`;
+        }
+    };
+
+    window.saveProfileSettings = async () => {
+        if(!window.currentUser) return;
+        const name = document.getElementById('set-name') ? document.getElementById('set-name').value.trim() : window.currentUser.name;
+        const phone = document.getElementById('set-phone') ? document.getElementById('set-phone').value.trim() : (window.currentUser.phone || '');
+        const address = document.getElementById('set-address') ? document.getElementById('set-address').value.trim() : (window.currentUser.address || '');
+        const pass = document.getElementById('set-password') ? document.getElementById('set-password').value.trim() : '';
+        
+        if(!name) return showToast("Nama tidak boleh kosong!");
+        
+        let updates = { name: name, phone: phone, address: address };
+        if(window.tempProfileAvatarBase64) updates.avatar = window.tempProfileAvatarBase64;
+        if(pass) updates.password = pass;
+
+        showLoading(true);
+        try {
+            await updateDoc(doc(db, window.getPath('users'), window.currentUser.uid), updates);
+            showToast("Profil berhasil diperbarui!");
+            window.tempProfileAvatarBase64 = null;
+            if(pass) document.getElementById('set-password').value = '';
+        } catch(e) { showToast("Gagal memperbarui profil: " + e.message); }
+        showLoading(false);
+    };
+
+    window.triggerAppLogoUpload = () => { document.getElementById('app-logo-upload-input').click(); };
+
+    window.handleAppLogoUpload = async (e) => {
+        const file = e.target.files[0];
+        if(file && window.compressImageToBase64) {
+            window.platformSettings.tempLogoUrl = await compressImageToBase64(file);
+            const preview = document.getElementById('settings-logo-preview');
+            if(preview) preview.innerHTML = `<img src="${window.platformSettings.tempLogoUrl}" class="w-full h-full object-cover">`;
+        }
+    };
+
+    window.saveAppSettings = async () => {
+        const appName = document.getElementById('setting-app-name').value.trim();
+        const appTagline = document.getElementById('setting-app-tagline').value.trim();
+        const appAbout = document.getElementById('setting-app-about').value.trim();
+        
+        if(!appName) return showToast("Nama Aplikasi wajib diisi!");
+
+        let updates = { name: appName, tagline: appTagline, aboutText: appAbout };
+        if(window.platformSettings.tempLogoUrl) updates.logoUrl = window.platformSettings.tempLogoUrl;
+        else if (window.platformSettings.logoUrl) updates.logoUrl = window.platformSettings.logoUrl;
+
+        showLoading(true);
+        try {
+            await setDoc(doc(db, window.getPath('settings'), 'core'), updates);
+            showToast("Pengaturan aplikasi berhasil disimpan!");
+            window.platformSettings.tempLogoUrl = null;
+        } catch(e) { showToast("Gagal menyimpan pengaturan: " + e.message); }
+        showLoading(false);
+    };
+
+    window.triggerVendorQrisUpload = () => { document.getElementById('vendor-qris-upload-input').click(); };
+
+    window.handleVendorQrisUpload = async (e) => {
+        const file = e.target.files[0];
+        if(file && window.compressImageToBase64) {
+            window.tempVendorQrisUrl = await compressImageToBase64(file);
+            const preview = document.getElementById('vendor-qris-preview');
+            if(preview) preview.innerHTML = `<img src="${window.tempVendorQrisUrl}" class="w-full h-full object-cover">`;
+        }
+    };
+
+    window.saveVendorBankSettings = async () => {
+        if(!window.currentUser || window.currentUser.role !== 'pedagang') return;
+        const bankName = document.getElementById('vendor-bank-name').value.trim();
+        const bankAccount = document.getElementById('vendor-bank-account').value.trim();
+        const shopId = window.currentUser.shopId;
+        
+        if(!shopId) return showToast("Data kios tidak ditemukan.");
+
+        let updates = { bankName: bankName, bankAccount: bankAccount };
+        if(window.tempVendorQrisUrl) updates.qrisUrl = window.tempVendorQrisUrl;
+
+        showLoading(true);
+        try {
+            await updateDoc(doc(db, window.getPath('shops'), shopId), updates);
+            showToast("Pengaturan Bank & QRIS berhasil disimpan!");
+            window.tempVendorQrisUrl = null;
+        } catch(e) { showToast("Gagal menyimpan pengaturan bank: " + e.message); }
+        showLoading(false);
+    };
 </script>
 
 </body>
