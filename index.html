@@ -569,16 +569,16 @@
             <div class="p-5 flex flex-col gap-3">
                 <input type="hidden" id="completion-order-id">
                 <input type="hidden" id="completion-payment-method">
-                <p class="text-xs text-gray-500 mb-2">Pastikan pesanan telah diserahkan. Silakan isi data penerima dan bukti foto.</p>
+                <p class="text-xs text-gray-500 mb-2">Pastikan pesanan telah diserahkan dan pembayaran COD telah diterima (jika ada). Silakan isi data penerima dan bukti foto.</p>
                 <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">Nama Penerima</label>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Nama Penerima Barang</label>
                     <input type="text" id="courier-recipient-name" placeholder="Misal: Bapak Budi / Satpam" class="w-full p-2.5 border rounded-xl text-sm outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 mb-1">Upload Bukti Terima (Foto Barang/Penerima)</label>
                     <input type="file" id="courier-proof-file" accept="image/*" class="w-full p-2 border rounded-xl text-xs bg-gray-50">
                 </div>
-                <button onclick="submitCourierCompletion()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow mt-2">Kirim & Selesaikan Pesanan</button>
+                <button onclick="submitCourierCompletion()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow mt-2"><i class="fa-solid fa-clipboard-check mr-1"></i> Selesaikan & Tandai Lunas</button>
             </div>
         </div>
     </div>
@@ -655,11 +655,19 @@
         </div>
     </div>
 
+    <!-- Modal Nota Lunas PDF -->
     <div id="invoice-modal" class="hidden fixed inset-0 bg-black/60 z-[10000] flex justify-center items-center backdrop-blur-sm p-4">
         <div class="bg-white w-full max-w-sm rounded-xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-            <div class="bg-gray-100 text-gray-800 p-4 flex justify-between items-center border-b"><h3 class="font-bold text-sm"><i class="fa-solid fa-receipt mr-2"></i>Nota Pesanan</h3><i class="fa-solid fa-xmark text-lg cursor-pointer p-1 hover:text-red-500" onclick="closeInvoiceModal()"></i></div>
-            <div id="invoice-print-area" class="p-5 flex flex-col gap-2 bg-white relative overflow-y-auto min-h-[300px]"></div>
-            <div class="p-4 border-t bg-gray-50 flex gap-2"><button onclick="downloadInvoicePDF()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg text-xs shadow flex items-center justify-center gap-2 transition-colors"><i class="fa-solid fa-download"></i> Unduh PDF / Cetak</button></div>
+            <div class="bg-gray-800 text-white p-4 flex justify-between items-center border-b border-gray-700">
+                <h3 class="font-bold text-sm"><i class="fa-solid fa-receipt mr-2"></i>Nota Lunas</h3>
+                <i class="fa-solid fa-xmark text-lg cursor-pointer p-1 hover:text-red-400" onclick="closeInvoiceModal()"></i>
+            </div>
+            <div id="invoice-print-area" class="p-6 flex flex-col gap-2 bg-white relative overflow-y-auto min-h-[300px]"></div>
+            <div class="p-4 border-t bg-gray-50 flex gap-2">
+                <button onclick="downloadInvoicePDF()" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 rounded-lg text-xs shadow flex items-center justify-center gap-2 transition-colors">
+                    <i class="fa-solid fa-download"></i> Unduh PDF / Cetak Nota
+                </button>
+            </div>
         </div>
     </div>
 
@@ -843,7 +851,7 @@
 
     window.onload = async () => {
         showLoading(true);
-        // Force Anonymous Auth first to pass security rules for reading public data safely without blocking internal auth
+        // Memastikan bypass firebase secara stabil 
         try { await signInAnonymously(auth); } catch(e) { console.warn("Anon Auth Error", e); }
         startFirebaseListeners();
         
@@ -963,6 +971,9 @@
         if(window.activePreviewProductId) openProductPreviewModal(window.activePreviewProductId);
     }
 
+    // ==========================================
+    // SISTEM LOGIN INTERNAL (ANTI-BLOKIR FIREBASE)
+    // ==========================================
     window.handleLogin = async () => {
         const userKey = document.getElementById('login-username').value.toLowerCase().replace(/\s+/g, '').trim();
         const pass = document.getElementById('login-password').value;
@@ -989,7 +1000,7 @@
             }
             showLoading(false);
         }, 500); 
-    }
+    };
 
     window.handleBuyerRegister = async () => {
         const userKey = document.getElementById('reg-username').value.toLowerCase().replace(/\s+/g, '').trim();
@@ -1019,18 +1030,7 @@
             showToast("Gagal registrasi: " + e.message);
         }
         showLoading(false);
-    }
-
-    window.handleLogout = () => document.getElementById('logout-modal').classList.remove('hidden');
-    window.hideLogoutModal = () => document.getElementById('logout-modal').classList.add('hidden');
-    
-    window.executeLogout = async () => {
-        hideLogoutModal();
-        window.currentUser = null;
-        localStorage.removeItem('ruhui_user_session');
-        showToast("Berhasil keluar.");
-        navigate('profile');
-    }
+    };
 
     window.handleResetPassword = async () => {
         const userKey = document.getElementById('forgot-username').value.toLowerCase().replace(/\s+/g, '').trim();
@@ -1039,9 +1039,7 @@
         const u = window.appData.users[userKey];
         if(u) {
             try {
-                if(window.updateDoc) {
-                    await updateDoc(doc(db, window.getPath('users'), u.uid), { password: pass });
-                }
+                await updateDoc(doc(db, window.getPath('users'), u.uid), { password: pass });
                 showToast("Password berhasil direset! Silakan login.");
                 document.getElementById('forgot-username').value = '';
                 document.getElementById('forgot-new-password').value = '';
@@ -1054,6 +1052,56 @@
         }
     };
 
+    window.handleLogout = () => document.getElementById('logout-modal').classList.remove('hidden');
+    window.hideLogoutModal = () => document.getElementById('logout-modal').classList.add('hidden');
+    
+    window.executeLogout = async () => {
+        hideLogoutModal();
+        window.currentUser = null;
+        localStorage.removeItem('ruhui_user_session');
+        showToast("Berhasil keluar.");
+        navigate('profile');
+    };
+
+    // ==========================================
+    // SISTEM PENGELOLAAN PENGGUNA (RESET & BLOKIR OLEH ADMIN)
+    // ==========================================
+    window.executeResetPassword = async () => {
+        const userKey = document.getElementById('reset-target-user').value;
+        const pass = document.getElementById('admin-new-pass').value.trim();
+        if(!pass) return showToast("Masukkan password baru.");
+        const u = window.appData.users[userKey];
+        if(u) {
+            try {
+                await updateDoc(doc(db, window.getPath('users'), u.uid), { password: pass });
+                closeResetPasswordModal(); 
+                showToast("Password berhasil diganti secara instan!");
+                document.getElementById('admin-new-pass').value = '';
+            } catch(e) {
+                showToast("Gagal reset password: " + e.message);
+            }
+        } else {
+            showToast("Pengguna tidak ditemukan.");
+        }
+    };
+
+    window.toggleBlockUser = async (userKey) => {
+        const u = window.appData.users[userKey];
+        if(u) {
+            try {
+                await updateDoc(doc(db, window.getPath('users'), u.uid), { isActive: !u.isActive });
+                showToast(u.isActive ? "Akun berhasil diblokir." : "Blokir akun berhasil dibuka.");
+            } catch(e) {
+                showToast("Gagal mengubah status: " + e.message);
+            }
+        } else {
+            showToast("Pengguna tidak ditemukan.");
+        }
+    };
+
+    // ==========================================
+    // SISTEM ADMIN TAMBAH KARYAWAN & PEDAGANG MURNI INTERNAL
+    // ==========================================
     window.adminSaveAdminUser = async () => {
         const name = document.getElementById('new-admin-name').value.trim();
         const userKey = document.getElementById('new-admin-user').value.toLowerCase().replace(/\s+/g, '');
@@ -1072,7 +1120,7 @@
             showToast(`Admin baru "${name}" berhasil didaftarkan!`);
         } catch(e) { showToast("Gagal: " + e.message); }
         showLoading(false);
-    }
+    };
 
     window.adminSaveCourierUser = async () => {
         const userKey = document.getElementById('courier-username').value.toLowerCase().replace(/\s+/g, '');
@@ -1101,7 +1149,7 @@
             showToast("Kurir baru berhasil didaftarkan!");
         } catch(e) { showToast("Gagal: " + e.message); }
         showLoading(false);
-    }
+    };
 
     window.adminSaveVendorUser = async () => {
         const userKey = document.getElementById('vendor-username').value.toLowerCase().replace(/\s+/g, '');
@@ -1138,7 +1186,202 @@
             showToast("Pedagang dan Kios baru berhasil didaftarkan!");
         } catch(e) { showToast("Gagal: " + e.message); }
         showLoading(false);
-    }
+    };
+
+    // ==========================================
+    // SISTEM PENGANTARAN (ALUR KURIR LENGKAP & NOTA)
+    // ==========================================
+    window.renderOrders = () => {
+        const container = document.getElementById('orders-container');
+        if(!container) return;
+        const searchInput = document.getElementById('search-order-id');
+        const searchQuery = searchInput ? searchInput.value.trim().toLowerCase() : '';
+        let orders = [];
+
+        if(window.currentUser) {
+            if(window.currentUser.role === 'pembeli') orders = window.appData.orders.filter(o => o.buyerUid === window.currentUser.uid);
+            else if(window.currentUser.role === 'pedagang') orders = window.appData.orders.filter(o => o.shopId === window.currentUser.shopId);
+            else if(window.currentUser.role === 'kurir') orders = window.appData.orders.filter(o => o.courierUid === window.currentUser.uid || o.status === 'Menunggu Kurir');
+            else orders = window.appData.orders;
+        }
+
+        if(searchQuery) orders = orders.filter(o => o.id.toLowerCase().includes(searchQuery));
+
+        if(orders.length === 0) {
+            container.innerHTML = `<div class="text-center py-10 text-gray-500"><i class="fa-solid fa-box-open text-4xl mb-3 text-gray-300"></i><p>Tidak ada pesanan.</p></div>`;
+            return;
+        }
+
+        orders = [...orders].reverse();
+
+        container.innerHTML = orders.map(o => `
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3">
+                <div class="flex justify-between items-center border-b pb-2">
+                    <span class="font-bold text-sm text-gray-800">ID: ${o.id}</span>
+                    <span class="text-[10px] bg-gray-100 text-gray-600 px-2 py-1 rounded font-bold">${o.date || '-'}</span>
+                </div>
+                <div class="flex flex-col gap-1 text-xs text-gray-600">
+                    <div><b>Pembeli:</b> ${o.buyerName}</div>
+                    <div><b>Kios:</b> ${window.appData.shops.find(s=>s.shopId===o.shopId)?.shopName || 'Kios'}</div>
+                    <div><b>Total:</b> <span class="font-bold text-green-700">${formatRupiah(o.totalAmount)}</span> (${o.paymentMethod})</div>
+                    <div><b>Status:</b> <span class="font-bold text-blue-600">${o.status}</span></div>
+                    ${o.courierName ? `<div><b>Kurir:</b> ${o.courierName}</div>` : ''}
+                    ${o.recipientName ? `<div><b>Penerima:</b> ${o.recipientName}</div>` : ''}
+                    ${o.deliveryProof ? `<div><b>Bukti Pengantaran:</b> <a href="#" onclick="openImageLightbox('${o.deliveryProof}'); return false;" class="text-blue-600 font-bold hover:underline">Lihat Foto</a></div>` : ''}
+                </div>
+                <div class="border-t pt-3 flex flex-wrap justify-end gap-2">
+                    ${window.currentUser.role === 'admin' && (o.status === 'Menunggu Konfirmasi Pembayaran' || o.status === 'Menunggu Konfirmasi Kios') ? `<button onclick="vendorActionOrder('${o.id}', 'Diproses', 'Pembayaran Dikonfirmasi')" class="theme-btn text-xs px-3 py-1.5 rounded-lg shadow-sm">Konfirmasi Bayar</button>` : ''}
+                    ${window.currentUser.role === 'pedagang' && o.status === 'Menunggu Konfirmasi Kios' ? `<button onclick="vendorActionOrder('${o.id}', 'Diproses', 'Pesanan Diterima')" class="theme-btn text-xs px-3 py-1.5 rounded-lg shadow-sm">Terima Pesanan</button>` : ''}
+                    ${window.currentUser.role === 'pedagang' && o.status === 'Diproses' ? `<button onclick="openAssignCourierModal('${o.id}')" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Panggil Kurir</button>` : ''}
+                    
+                    ${window.currentUser.role === 'kurir' && o.status === 'Menunggu Kurir' ? `<button onclick="takeCourierOrder('${o.id}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Ambil Tugas Umum</button>` : ''}
+                    ${window.currentUser.role === 'kurir' && o.courierUid === window.currentUser.uid && o.status === 'Menunggu Konfirmasi Kurir' ? `<button onclick="updateOrderStatus('${o.id}', 'Menuju ke Toko/Penjual', 'Pengantaran diterima, silakan menuju toko')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Terima Pengantaran</button>` : ''}
+                    ${window.currentUser.role === 'kurir' && o.courierUid === window.currentUser.uid && o.status === 'Menuju ke Toko/Penjual' ? `<button onclick="updateOrderStatus('${o.id}', 'Pesanan Dalam Perjalanan', 'Status: Mengantar ke pembeli')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Pesanan Dalam Perjalanan</button>` : ''}
+                    ${window.currentUser.role === 'kurir' && o.courierUid === window.currentUser.uid && (o.status === 'Pesanan Dalam Perjalanan' || o.status === 'Sedang Diantar') ? `<button onclick="openCourierCompletionModal('${o.id}', '${o.paymentMethod}')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Pesanan Diterima Pembeli</button>` : ''}
+                    
+                    ${o.status === 'Selesai' ? `<button onclick="openInvoiceModal('${o.id}')" class="bg-gray-800 hover:bg-gray-900 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm"><i class="fa-solid fa-file-pdf"></i> Nota Lunas</button>` : ''}
+                    ${window.currentUser.role === 'pembeli' && o.status === 'Selesai' && !o.review ? `<button onclick="openReviewModal('${o.id}')" class="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Beri Ulasan</button>` : ''}
+                </div>
+            </div>
+        `).join('');
+    };
+
+    window.openAssignCourierModal = (orderId) => {
+        const inp = document.getElementById('assign-order-id');
+        if(inp) inp.value = orderId;
+        const list = document.getElementById('assign-courier-list');
+        const couriers = Object.values(window.appData.users).filter(u => u.role === 'kurir' && u.isActive);
+        if(list) {
+            list.innerHTML = couriers.map(c => `
+                <div class="flex justify-between items-center bg-gray-50 p-2 rounded border">
+                    <div class="text-xs font-bold">${c.name} (${c.vehicleType || 'Motor'})</div>
+                    <button onclick="assignCourierToOrder('${orderId}', '${c.uid}', '${c.name}')" class="theme-btn px-2 py-1 text-[10px] rounded">Pilih</button>
+                </div>
+            `).join('');
+        }
+        document.getElementById('assign-courier-modal').classList.remove('hidden');
+    };
+    
+    window.closeAssignCourierModal = () => document.getElementById('assign-courier-modal').classList.add('hidden');
+
+    window.assignCourierToOrder = async (orderId, courierUid, courierName) => {
+        try {
+            await updateDoc(doc(db, window.getPath('orders'), orderId), {
+                status: 'Menunggu Konfirmasi Kurir',
+                courierUid: courierUid,
+                courierName: courierName
+            });
+            closeAssignCourierModal();
+            showToast('Kurir berhasil ditugaskan, menunggu konfirmasi kurir!');
+        } catch(e) {
+            showToast("Gagal menugaskan kurir.");
+        }
+    };
+
+    window.updateOrderStatus = async (orderId, newStatus, toastMsg) => {
+        try {
+            await updateDoc(doc(db, window.getPath('orders'), orderId), { status: newStatus });
+            showToast(toastMsg);
+        } catch(e) {
+            showToast("Gagal update status.");
+        }
+    };
+
+    window.openCourierCompletionModal = (id, method) => {
+        document.getElementById('completion-order-id').value = id;
+        document.getElementById('completion-payment-method').value = method;
+        document.getElementById('courier-recipient-name').value = '';
+        document.getElementById('courier-proof-file').value = '';
+        document.getElementById('courier-completion-modal').classList.remove('hidden');
+    };
+
+    window.closeCourierCompletionModal = () => {
+        document.getElementById('courier-completion-modal').classList.add('hidden');
+    };
+
+    window.submitCourierCompletion = async () => {
+        const id = document.getElementById('completion-order-id').value;
+        const method = document.getElementById('completion-payment-method').value;
+        const name = document.getElementById('courier-recipient-name').value.trim();
+        const file = document.getElementById('courier-proof-file').files[0];
+
+        if(!name) return showToast("Nama penerima wajib diisi!");
+        if(!file) return showToast("Bukti foto wajib diupload!");
+
+        showLoading(true);
+        try {
+            const b64 = await compressImageToBase64(file);
+            await updateDoc(doc(db, window.getPath('orders'), id), {
+                deliveryProof: b64,
+                recipientName: name,
+                status: 'Selesai' 
+            });
+            closeCourierCompletionModal();
+            showToast("Pengantaran Selesai! Pesanan Lunas.");
+        } catch(e) {
+            showToast("Gagal mengupload: " + e.message);
+        }
+        showLoading(false);
+    };
+
+    window.openInvoiceModal = (orderId) => {
+        const order = window.appData.orders.find(o => o.id === orderId);
+        if(!order) return;
+
+        const shopName = window.appData.shops.find(s=>s.shopId===order.shopId)?.shopName || 'Kios Pasar';
+        const printArea = document.getElementById('invoice-print-area');
+        
+        let itemsHtml = order.items.map(item => {
+            let price = item.product.isPromo ? item.product.promoPrice : item.product.price;
+            return `<div class="flex justify-between text-xs text-gray-700 mb-1">
+                        <span>${item.qty}x ${item.product.name}</span>
+                        <span>${formatRupiah(price * item.qty)}</span>
+                    </div>`;
+        }).join('');
+
+        printArea.innerHTML = `
+            <div class="text-center border-b pb-3 mb-3 border-dashed">
+                <h2 class="font-black text-lg text-gray-800">RUHUI KERATON</h2>
+                <p class="text-[10px] text-gray-500">Pasar Tradisional Tapin</p>
+            </div>
+            <div class="text-xs text-gray-600 mb-3 space-y-1">
+                <p><b>ID Pesanan:</b> ${order.id}</p>
+                <p><b>Tanggal:</b> ${order.date}</p>
+                <p><b>Pembeli:</b> ${order.buyerName}</p>
+                <p><b>Kios:</b> ${shopName}</p>
+                <p><b>Kurir:</b> ${order.courierName || '-'}</p>
+                <p><b>Penerima:</b> ${order.recipientName || order.buyerName}</p>
+                <p><b>Metode:</b> ${order.paymentMethod}</p>
+                <div class="inline-block mt-1 px-2 py-0.5 bg-green-100 text-green-700 font-black rounded text-[10px] uppercase border border-green-200">LUNAS / SELESAI</div>
+            </div>
+            <div class="border-b pb-2 mb-2 border-dashed">
+                <div class="font-bold text-xs text-gray-800 mb-2">Rincian Belanja:</div>
+                ${itemsHtml}
+            </div>
+            <div class="flex justify-between font-black text-sm text-gray-800">
+                <span>TOTAL</span>
+                <span>${formatRupiah(order.totalAmount)}</span>
+            </div>
+            <div class="text-center text-[9px] text-gray-400 mt-6 pt-2 border-t border-dashed">
+                Terima kasih telah berbelanja di Pasar Ruhui Keraton Tapin.
+            </div>
+        `;
+        document.getElementById('invoice-modal').classList.remove('hidden');
+    };
+
+    window.closeInvoiceModal = () => document.getElementById('invoice-modal').classList.add('hidden');
+
+    window.downloadInvoicePDF = () => {
+        const element = document.getElementById('invoice-print-area');
+        const opt = {
+            margin:       10,
+            filename:     'Nota_Ruhui_Keraton.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 },
+            jsPDF:        { unit: 'mm', format: 'a5', orientation: 'portrait' }
+        };
+        html2pdf().set(opt).from(element).save();
+    };
 
     window.navigate = (viewId, param = null) => {
         document.querySelectorAll('.page-view').forEach(el => el.classList.add('hidden'));
@@ -1161,7 +1404,7 @@
         if(viewId === 'profile') { renderProfileState(); setTimeout(() => {if(window.initMapPicker) initMapPicker();}, 300); }
         if(viewId === 'about') renderAbout();
         window.scrollTo(0, 0);
-    }
+    };
 
     window.toggleTheme = () => {
         const wrapper = document.getElementById('ruhui-app-wrapper');
@@ -1169,9 +1412,9 @@
         wrapper.classList.toggle('dark-mode');
         if(wrapper.classList.contains('dark-mode')) { icon.classList.replace('fa-moon', 'fa-sun'); showToast("Mode Gelap Aktif"); } 
         else { icon.classList.replace('fa-sun', 'fa-moon'); showToast("Mode Terang Aktif"); }
-    }
+    };
     
-    window.toggleMobileSidebarDrawer = () => { const drawer = document.getElementById('mobile-sidebar-drawer'); if(drawer) drawer.classList.toggle('hidden'); }
+    window.toggleMobileSidebarDrawer = () => { const drawer = document.getElementById('mobile-sidebar-drawer'); if(drawer) drawer.classList.toggle('hidden'); };
 
     window.switchAuthMode = (mode) => {
         document.getElementById('form-login-pane').classList.add('hidden');
@@ -1192,13 +1435,13 @@
             document.getElementById('auth-form-title').textContent = "Lupa Password";
             document.getElementById('auth-form-subtitle').textContent = "Reset sandi secara mandiri";
         }
-    }
+    };
 
     window.togglePasswordVisibility = (inputId, iconId) => {
         const passInput = document.getElementById(inputId); const icon = document.getElementById(iconId);
         if (passInput.type === 'password') { passInput.type = 'text'; icon.classList.replace('fa-eye-slash', 'fa-eye'); } 
         else { passInput.type = 'password'; icon.classList.replace('fa-eye', 'fa-eye-slash'); }
-    }
+    };
 
     window.openResetPasswordModal = (userKey) => {
         const target = document.getElementById('reset-target-user');
@@ -1210,43 +1453,6 @@
     
     window.closeResetPasswordModal = () => document.getElementById('reset-password-modal').classList.add('hidden');
     
-    window.executeResetPassword = async () => {
-        const userKey = document.getElementById('reset-target-user').value;
-        const pass = document.getElementById('admin-new-pass').value.trim();
-        if(!pass) return showToast("Masukkan password baru.");
-        const u = window.appData.users[userKey];
-        if(u) {
-            try {
-                if(window.updateDoc) {
-                    await updateDoc(doc(db, window.getPath('users'), u.uid), { password: pass });
-                }
-                closeResetPasswordModal(); 
-                showToast("Password berhasil direset secara instan!");
-                document.getElementById('admin-new-pass').value = '';
-            } catch(e) {
-                showToast("Gagal reset password: " + e.message);
-            }
-        } else {
-            showToast("Pengguna tidak ditemukan.");
-        }
-    };
-
-    window.toggleBlockUser = async (userKey) => {
-        const u = window.appData.users[userKey];
-        if(u) {
-            try {
-                if(window.updateDoc) {
-                    await updateDoc(doc(db, window.getPath('users'), u.uid), { isActive: !u.isActive });
-                }
-                showToast(u.isActive ? "Akun berhasil diblokir." : "Akun berhasil dibuka.");
-            } catch(e) {
-                showToast("Gagal mengubah status: " + e.message);
-            }
-        } else {
-            showToast("Pengguna tidak ditemukan.");
-        }
-    };
-
     window.renderShops = () => {
         const container = document.getElementById('shops-container');
         if(!container) return;
@@ -1321,139 +1527,67 @@
         }
     };
 
-    window.renderOrders = () => {
-        const container = document.getElementById('orders-container');
-        if(!container) return;
-        const searchInput = document.getElementById('search-order-id');
-        const searchQuery = searchInput ? searchInput.value.trim().toLowerCase() : '';
-        let orders = [];
+    window.likeCurrentShop = async () => {
+        if (!window.currentUser) return showToast("Silakan login terlebih dahulu untuk menyukai toko.");
+        if (!window.currentActiveShopId) return;
 
-        if(window.currentUser) {
-            if(window.currentUser.role === 'pembeli') orders = window.appData.orders.filter(o => o.buyerUid === window.currentUser.uid);
-            else if(window.currentUser.role === 'pedagang') orders = window.appData.orders.filter(o => o.shopId === window.currentUser.shopId);
-            else if(window.currentUser.role === 'kurir') orders = window.appData.orders.filter(o => o.courierUid === window.currentUser.uid || o.status === 'Menunggu Kurir');
-            else orders = window.appData.orders;
-        }
+        const shop = window.appData.shops.find(s => s.shopId === window.currentActiveShopId);
+        if (!shop) return;
 
-        if(searchQuery) orders = orders.filter(o => o.id.toLowerCase().includes(searchQuery));
+        let likedBy = shop.likedBy || [];
+        let isLiked = likedBy.includes(window.currentUser.uid);
 
-        if(orders.length === 0) {
-            container.innerHTML = `<div class="text-center py-10 text-gray-500"><i class="fa-solid fa-box-open text-4xl mb-3 text-gray-300"></i><p>Tidak ada pesanan.</p></div>`;
-            return;
-        }
+        if (isLiked) likedBy = likedBy.filter(uid => uid !== window.currentUser.uid);
+        else likedBy.push(window.currentUser.uid);
 
-        orders = [...orders].reverse();
-
-        container.innerHTML = orders.map(o => `
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-3">
-                <div class="flex justify-between items-center border-b pb-2">
-                    <span class="font-bold text-sm text-gray-800">ID: ${o.id}</span>
-                    <span class="text-[10px] bg-gray-100 text-gray-600 px-2 py-1 rounded font-bold">${o.date || '-'}</span>
-                </div>
-                <div class="flex flex-col gap-1 text-xs text-gray-600">
-                    <div><b>Pembeli:</b> ${o.buyerName}</div>
-                    <div><b>Kios:</b> ${window.appData.shops.find(s=>s.shopId===o.shopId)?.shopName || 'Kios'}</div>
-                    <div><b>Total:</b> <span class="font-bold text-green-700">${formatRupiah(o.totalAmount)}</span> (${o.paymentMethod})</div>
-                    <div><b>Status:</b> <span class="font-bold text-blue-600">${o.status}</span></div>
-                    ${o.courierName ? `<div><b>Kurir:</b> ${o.courierName}</div>` : ''}
-                    ${o.recipientName ? `<div><b>Penerima:</b> ${o.recipientName}</div>` : ''}
-                    ${o.deliveryProof ? `<div><b>Bukti Pengantaran:</b> <a href="#" onclick="openImageLightbox('${o.deliveryProof}'); return false;" class="text-blue-600 font-bold hover:underline">Lihat Foto</a></div>` : ''}
-                </div>
-                <div class="border-t pt-3 flex flex-wrap justify-end gap-2">
-                    ${window.currentUser.role === 'admin' && (o.status === 'Menunggu Konfirmasi Pembayaran' || o.status === 'Menunggu Konfirmasi Kios') ? `<button onclick="vendorActionOrder('${o.id}', 'Diproses', 'Pembayaran Dikonfirmasi')" class="theme-btn text-xs px-3 py-1.5 rounded-lg shadow-sm">Konfirmasi Bayar</button>` : ''}
-                    ${window.currentUser.role === 'pedagang' && o.status === 'Menunggu Konfirmasi Kios' ? `<button onclick="vendorActionOrder('${o.id}', 'Diproses', 'Pesanan Diterima')" class="theme-btn text-xs px-3 py-1.5 rounded-lg shadow-sm">Terima Pesanan</button>` : ''}
-                    ${window.currentUser.role === 'pedagang' && o.status === 'Diproses' ? `<button onclick="openAssignCourierModal('${o.id}')" class="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Panggil Kurir</button>` : ''}
-                    
-                    ${window.currentUser.role === 'kurir' && o.status === 'Menunggu Kurir' ? `<button onclick="takeCourierOrder('${o.id}')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Ambil Tugas Umum</button>` : ''}
-                    ${window.currentUser.role === 'kurir' && o.courierUid === window.currentUser.uid && o.status === 'Menunggu Konfirmasi Kurir' ? `<button onclick="updateOrderStatus('${o.id}', 'Menuju ke Toko/Penjual', 'Pengantaran diterima, silakan menuju toko')" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Terima Pengantaran</button>` : ''}
-                    ${window.currentUser.role === 'kurir' && o.courierUid === window.currentUser.uid && o.status === 'Menuju ke Toko/Penjual' ? `<button onclick="updateOrderStatus('${o.id}', 'Pesanan Dalam Perjalanan', 'Status: Mengantar ke pembeli')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Pesanan Dalam Perjalanan</button>` : ''}
-                    ${window.currentUser.role === 'kurir' && o.courierUid === window.currentUser.uid && (o.status === 'Pesanan Dalam Perjalanan' || o.status === 'Sedang Diantar') ? `<button onclick="openCourierCompletionModal('${o.id}', '${o.paymentMethod}')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Pesanan Diterima Pembeli</button>` : ''}
-                    
-                    ${window.currentUser.role === 'pembeli' && o.status.includes('Menunggu Konfirmasi Pembayaran COD') ? `<button onclick="buyerConfirmReceived('${o.id}')" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Konfirmasi Pembayaran COD</button>` : ''}
-                    ${window.currentUser.role === 'pembeli' && o.status === 'Selesai' && !o.review ? `<button onclick="openReviewModal('${o.id}')" class="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-3 py-1.5 rounded-lg shadow-sm">Beri Ulasan</button>` : ''}
-                </div>
-            </div>
-        `).join('');
-    };
-
-    window.openAssignCourierModal = (orderId) => {
-        const inp = document.getElementById('assign-order-id');
-        if(inp) inp.value = orderId;
-        const list = document.getElementById('assign-courier-list');
-        const couriers = Object.values(window.appData.users).filter(u => u.role === 'kurir' && u.isActive);
-        if(list) {
-            list.innerHTML = couriers.map(c => `
-                <div class="flex justify-between items-center bg-gray-50 p-2 rounded border">
-                    <div class="text-xs font-bold">${c.name} (${c.vehicleType || 'Motor'})</div>
-                    <button onclick="assignCourierToOrder('${orderId}', '${c.uid}', '${c.name}')" class="theme-btn px-2 py-1 text-[10px] rounded">Pilih</button>
-                </div>
-            `).join('');
-        }
-        document.getElementById('assign-courier-modal').classList.remove('hidden');
-    };
-    
-    window.closeAssignCourierModal = () => document.getElementById('assign-courier-modal').classList.add('hidden');
-
-    window.assignCourierToOrder = async (orderId, courierUid, courierName) => {
-        if(window.updateDoc) {
-            await updateDoc(doc(db, window.getPath('orders'), orderId), {
-                status: 'Menunggu Konfirmasi Kurir',
-                courierUid: courierUid,
-                courierName: courierName
-            });
-            closeAssignCourierModal();
-            showToast('Kurir berhasil ditugaskan, menunggu konfirmasi kurir!');
-        }
-    };
-
-    window.updateOrderStatus = async (orderId, newStatus, toastMsg) => {
-        if(window.updateDoc) {
-            await updateDoc(doc(db, window.getPath('orders'), orderId), { status: newStatus });
-            showToast(toastMsg);
-        }
-    };
-
-    window.openCourierCompletionModal = (id, method) => {
-        document.getElementById('completion-order-id').value = id;
-        document.getElementById('completion-payment-method').value = method;
-        document.getElementById('courier-recipient-name').value = '';
-        document.getElementById('courier-proof-file').value = '';
-        document.getElementById('courier-completion-modal').classList.remove('hidden');
-    };
-
-    window.closeCourierCompletionModal = () => {
-        document.getElementById('courier-completion-modal').classList.add('hidden');
-    };
-
-    window.submitCourierCompletion = async () => {
-        const id = document.getElementById('completion-order-id').value;
-        const method = document.getElementById('completion-payment-method').value;
-        const name = document.getElementById('courier-recipient-name').value.trim();
-        const file = document.getElementById('courier-proof-file').files[0];
-
-        if(!name) return showToast("Nama penerima wajib diisi!");
-        if(!file) return showToast("Bukti foto wajib diupload!");
-
-        showLoading(true);
         try {
-            const b64 = await compressImageToBase64(file);
-            const newStatus = method === 'COD' ? 'Menunggu Konfirmasi Pembayaran COD' : 'Selesai';
-            await updateDoc(doc(db, window.getPath('orders'), id), {
-                deliveryProof: b64,
-                recipientName: name,
-                status: newStatus
-            });
-            closeCourierCompletionModal();
-            showToast("Pengantaran Selesai!");
-        } catch(e) {
-            showToast("Gagal mengupload: " + e.message);
-        }
-        showLoading(false);
+            await updateDoc(doc(db, window.getPath('shops'), shop.shopId), { likedBy: likedBy, likes: likedBy.length });
+        } catch (e) { showToast("Gagal menyukai toko."); }
     };
 
-    window.vendorActionOrder = async (orderId, newStatus, msg) => { await updateDoc(doc(db, window.getPath('orders'), orderId), { status: newStatus }); showToast(msg); }
-    window.buyerConfirmReceived = async (orderId) => { await updateDoc(doc(db, window.getPath('orders'), orderId), { status: 'Selesai' }); showToast("Pesanan Selesai!"); }
-    
+    window.likeProduct = async (productId) => {
+        if (!window.currentUser) return showToast("Silakan login terlebih dahulu.");
+        const p = window.appData.products.find(x => x.id === productId);
+        if (!p) return;
+
+        let likedBy = p.likedBy || [];
+        let isLiked = likedBy.includes(window.currentUser.uid);
+
+        if (isLiked) likedBy = likedBy.filter(uid => uid !== window.currentUser.uid);
+        else likedBy.push(window.currentUser.uid);
+
+        try {
+            await updateDoc(doc(db, window.getPath('products'), p.id), { likedBy: likedBy, likes: likedBy.length });
+        } catch (e) { showToast("Gagal menyukai produk."); }
+    };
+
+    window.postShopComment = async () => {
+        if(!window.currentUser) return showToast("Login untuk berkomentar.");
+        const input = document.getElementById('shop-comment-input');
+        const text = input.value.trim();
+        if(!text) return showToast("Tulis komentar terlebih dahulu.");
+        
+        const shop = window.appData.shops.find(s => s.shopId === window.currentActiveShopId);
+        if(!shop) return;
+        
+        const coms = shop.comments || [];
+        coms.push({ sender: window.currentUser.name, text: text, time: new Date().toLocaleDateString('id-ID') });
+        try {
+            await updateDoc(doc(db, window.getPath('shops'), shop.shopId), { comments: coms });
+            input.value = '';
+            showToast("Komentar berhasil dikirim!");
+        } catch(e) { showToast("Gagal mengirim ulasan."); }
+    };
+
+    window.vendorActionOrder = async (orderId, newStatus, msg) => { 
+        try {
+            await updateDoc(doc(db, window.getPath('orders'), orderId), { status: newStatus }); 
+            showToast(msg); 
+        } catch (e) {
+            showToast("Gagal proses pesanan.");
+        }
+    };
+
     window.renderChatRooms = () => {
         const list = document.getElementById('chat-rooms-list');
         if(!list) return;
@@ -1559,11 +1693,11 @@
             if(!text) return;
             const coms = p.comments || [];
             coms.push({ sender: window.currentUser.name, text: text, time: new Date().toLocaleDateString('id-ID') });
-            if(window.updateDoc) {
+            try {
                 await updateDoc(doc(db, window.getPath('products'), p.id), { comments: coms });
-            }
-            input.value = '';
-            openProductPreviewModal(p.id);
+                input.value = '';
+                openProductPreviewModal(p.id);
+            } catch(e) {}
         };
 
         document.getElementById('product-preview-modal').classList.remove('hidden');
@@ -1595,11 +1729,13 @@
         const file = document.getElementById('report-proof-file').files[0];
         if(file && window.compressImageToBase64) proof = await compressImageToBase64(file);
 
-        if(window.setDoc) {
+        try {
             const ref = doc(collection(db, window.getPath('reports')));
             await setDoc(ref, { id: ref.id, reporter: window.currentUser.name, reporterUid: window.currentUser.uid, subject: subj, description: desc, proof: proof, date: new Date().toLocaleDateString('id-ID') });
+            closeReportModal(); showToast("Laporan terkirim.");
+        } catch(e) {
+            showToast("Gagal kirim laporan.");
         }
-        closeReportModal(); showToast("Laporan terkirim.");
     };
 
     window.openProductModal = () => {
@@ -1637,6 +1773,45 @@
         document.getElementById('product-modal-title').textContent = "Edit Produk";
         document.getElementById('product-modal').classList.remove('hidden');
     };
+
+    window.saveVendorProduct = async () => {
+        const id = document.getElementById('edit-product-id').value;
+        const name = document.getElementById('prod-name').value.trim();
+        const price = parseInt(document.getElementById('prod-price').value);
+        const costPrice = parseInt(document.getElementById('prod-cost-price').value) || 0;
+        const strikethroughPrice = parseInt(document.getElementById('prod-strikethrough-price').value) || 0;
+        const isPromo = document.getElementById('prod-is-promo').checked;
+        const promoPrice = parseInt(document.getElementById('prod-promo-price').value) || 0;
+        const unit = document.getElementById('prod-unit').value.trim();
+        const category = document.getElementById('prod-category').value;
+
+        if(!name || !price || !unit) return showToast("Nama, Harga, dan Satuan wajib diisi!");
+        if(!window.tempProductImageUrl) return showToast("Upload foto produk!");
+        if(isPromo && !promoPrice) return showToast("Harga promo wajib diisi jika promo aktif!");
+
+        showLoading(true);
+        try {
+            const shop = window.appData.shops.find(s => s.shopId === window.currentUser.shopId);
+            const data = {
+                name, price, costPrice, strikethroughPrice, isPromo, promoPrice, unit, category,
+                image: window.tempProductImageUrl, shopId: shop.shopId, shopName: shop.shopName,
+                rating: 0, soldCount: 0, likes: 0, likedBy: []
+            };
+
+            if(id) {
+                await updateDoc(doc(db, window.getPath('products'), id), data);
+                showToast("Produk diperbarui!");
+            } else {
+                const newRef = doc(collection(db, window.getPath('products')));
+                await setDoc(newRef, { ...data, id: newRef.id, createdAt: new Date().toISOString() });
+                showToast("Produk baru ditambahkan!");
+            }
+            closeProductModal();
+        } catch(e) {
+            showToast("Gagal menyimpan produk.");
+        }
+        showLoading(false);
+    };
     
     window.handleProductImageFile = async (e) => {
         const file = e.target.files[0];
@@ -1668,11 +1843,11 @@
         const address = document.getElementById('partner-address').value.trim();
         if(!name || !phone) return showToast("Isi nama dan HP.");
         
-        if(window.setDoc) {
+        try {
             const ref = doc(collection(db, window.getPath('messages')));
             await setDoc(ref, { id: ref.id, sender: window.currentUser.name, senderUid: window.currentUser.uid, subject: `Pengajuan Mitra ${type}`, description: `Nama: ${name}\nHP: ${phone}\nAlamat: ${address}`, status: 'Menunggu', date: new Date().toLocaleDateString('id-ID') });
-        }
-        closePublicPartnership(); showToast("Pengajuan terkirim!");
+            closePublicPartnership(); showToast("Pengajuan terkirim!");
+        } catch(e) {}
     };
 
     window.openContactAdminModal = () => document.getElementById('contact-admin-modal').classList.remove('hidden');
@@ -1682,11 +1857,11 @@
         const topic = document.getElementById('contact-admin-topic').value;
         const desc = document.getElementById('contact-admin-desc').value.trim();
         if(!desc) return showToast("Isi detail rincian.");
-        if(window.setDoc) {
+        try {
             const ref = doc(collection(db, window.getPath('messages')));
             await setDoc(ref, { id: ref.id, sender: window.currentUser.name, senderUid: window.currentUser.uid, subject: topic, description: desc, status: 'Menunggu', date: new Date().toLocaleDateString('id-ID') });
-        }
-        closeContactAdminModal(); showToast("Pengajuan dikirim!");
+            closeContactAdminModal(); showToast("Pengajuan dikirim!");
+        } catch(e) {}
     };
 
     window.openAddAdminModal = () => document.getElementById('add-admin-modal').classList.remove('hidden');
@@ -1699,12 +1874,16 @@
     window.adminAddYear = async () => {
         const y = document.getElementById('new-year-input').value;
         if(!y) return;
-        if(window.setDoc) await setDoc(doc(db, window.getPath('years'), y.toString()), { year: parseInt(y) });
-        document.getElementById('new-year-input').value = '';
+        try {
+            await setDoc(doc(db, window.getPath('years'), y.toString()), { year: parseInt(y) });
+            document.getElementById('new-year-input').value = '';
+        } catch(e) {}
     };
     
     window.adminDeleteYear = async (y) => {
-        if(window.deleteDoc) await deleteDoc(doc(db, window.getPath('years'), y.toString()));
+        try {
+            await deleteDoc(doc(db, window.getPath('years'), y.toString()));
+        } catch(e) {}
     };
 
     window.updateVendorFinanceView = () => {
@@ -1865,10 +2044,10 @@
             loadDashboardContent('vendor-products');
         } else if(window.currentUser.role === 'kurir') {
             html = `
-                <div onclick="loadDashboardContent('courier-orders'); toggleMobileSidebarDrawer();" class="flex items-center gap-2 p-2.5 rounded-xl cursor-pointer hover:bg-gray-100 text-xs font-medium text-gray-700"><i class="fa-solid fa-truck-fast text-blue-600 w-5"></i> Daftar Tugas Pengantaran</div>
+                <div onclick="navigate('orders'); toggleMobileSidebarDrawer();" class="flex items-center gap-2 p-2.5 rounded-xl cursor-pointer hover:bg-gray-100 text-xs font-medium text-gray-700"><i class="fa-solid fa-truck-fast text-blue-600 w-5"></i> Daftar Tugas Pengantaran</div>
                 <div onclick="loadDashboardContent('profile-settings'); toggleMobileSidebarDrawer();" class="flex items-center gap-2 p-2.5 rounded-xl cursor-pointer hover:bg-gray-100 text-xs font-medium text-gray-700"><i class="fa-solid fa-user-gear text-purple-600 w-5"></i> Pengaturan Profil Akun</div>
             `;
-            loadDashboardContent('courier-orders');
+            loadDashboardContent('profile-settings');
         } else {
             html = `
                 <div onclick="loadDashboardContent('buyer-info'); toggleMobileSidebarDrawer();" class="flex items-center gap-2 p-2.5 rounded-xl cursor-pointer hover:bg-gray-100 text-xs font-medium text-gray-700"><i class="fa-solid fa-user-circle text-green-600 w-5"></i> Informasi Akun</div>
@@ -1917,7 +2096,7 @@
             contentArea.innerHTML = `
                 <h3 class="font-bold text-lg mb-2 text-gray-800">Kelola Keuangan Pasar</h3>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl"><span class="text-xs text-emerald-700 font-semibold block mb-1">Total Transaksi Masuk</span><h4 class="text-xl font-bold text-emerald-900">${formatRupiah(totalTransAll)}</h4></div>
+                    <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-xl"><span class="text-xs text-emerald-700 font-semibold block mb-1">Total Transaksi Lunas</span><h4 class="text-xl font-bold text-emerald-900">${formatRupiah(totalTransAll)}</h4></div>
                 </div>
                 <h4 class="font-bold text-sm mb-3 text-gray-800">Rincian Per Toko / Kios</h4>
                 <div class="flex flex-col gap-3">
@@ -2094,12 +2273,6 @@
                     </div>
                     <button onclick="saveVendorBankSettings()" class="theme-btn font-bold py-3 rounded-xl text-sm shadow">Simpan Pengaturan Pembayaran</button>
                 </div>
-            `;
-        } else if(contentType === 'vendor-orders' || contentType === 'courier-orders') {
-            contentArea.innerHTML = `
-                <h3 class="font-bold text-lg mb-4 text-gray-800">Kelola Pesanan Masuk & Pengantaran</h3>
-                <p class="text-xs text-gray-500 mb-4">Silakan cek pada menu utama "Pesanan" untuk konfirmasi status pesanan dan pengantaran.</p>
-                <button onclick="navigate('orders')" class="theme-btn text-xs font-bold px-4 py-2.5 rounded-xl shadow">Buka Halaman Pesanan</button>
             `;
         } else if(contentType === 'buyer-info') {
             contentArea.innerHTML = `
@@ -2295,132 +2468,6 @@
         `;
     }
 
-    window.handleProfileAvatarUpload = async (e) => {
-        const file = e.target.files[0];
-        if(file) {
-            window.tempProfileAvatarBase64 = await compressImageToBase64(file);
-            document.getElementById('profile-avatar-preview').innerHTML = `<img src="${window.tempProfileAvatarBase64}" class="w-full h-full object-cover">`;
-            showToast("Foto dipilih. Klik Simpan Perubahan.");
-        }
-    }
-
-    window.triggerProfileAvatarUpload = () => {
-        document.getElementById('profile-avatar-input').click();
-    }
-
-    window.saveProfileSettings = async () => {
-        if(!window.currentUser) return;
-        const newName = document.getElementById('set-name').value.trim();
-        const newPass = document.getElementById('set-password').value.trim();
-        if(!newName) return showToast("Nama tidak boleh kosong!");
-        
-        showLoading(true);
-        try {
-            const uRef = doc(db, window.getPath('users'), window.currentUser.uid);
-            let updateData = { name: newName };
-            if(newPass) updateData.password = newPass;
-            if(window.tempProfileAvatarBase64) {
-                updateData.avatar = window.tempProfileAvatarBase64;
-                if(window.currentUser.role === 'pedagang' && window.currentUser.shopId) {
-                    await updateDoc(doc(db, window.getPath('shops'), window.currentUser.shopId), { image: window.tempProfileAvatarBase64, owner: newName });
-                }
-            }
-            await updateDoc(uRef, updateData);
-            window.tempProfileAvatarBase64 = null;
-            if(newPass) document.getElementById('set-password').value = '';
-            showToast("Profil diperbarui!");
-        } catch(e) { showToast("Gagal update profil: " + e.message); }
-        showLoading(false);
-    }
-
-    window.triggerAppLogoUpload = () => document.getElementById('app-logo-upload-input').click();
-    window.handleAppLogoUpload = async (e) => {
-        const file = e.target.files[0];
-        if(file) {
-            const b64 = await compressImageToBase64(file);
-            await updateDoc(doc(db, window.getPath('settings'), 'core'), { logoUrl: b64 });
-            showToast("Logo berhasil diubah!");
-        }
-    }
-
-    window.triggerVendorQrisUpload = () => document.getElementById('vendor-qris-upload-input').click();
-    window.handleVendorQrisUpload = async (e) => {
-        const file = e.target.files[0];
-        if(file && window.currentUser.shopId) {
-            const b64 = await compressImageToBase64(file);
-            await updateDoc(doc(db, window.getPath('shops'), window.currentUser.shopId), { qrisUrl: b64 });
-            showToast("QRIS berhasil diunggah!");
-        }
-    }
-
-    window.saveVendorBankSettings = async () => {
-        if(!window.currentUser || !window.currentUser.shopId) return;
-        await updateDoc(doc(db, window.getPath('shops'), window.currentUser.shopId), {
-            bankName: document.getElementById('vendor-bank-name').value.trim(),
-            bankAccount: document.getElementById('vendor-bank-account').value.trim()
-        });
-        showToast("Pengaturan bank disimpan!");
-    }
-
-    window.saveNewBanner = async () => {
-        const file = document.getElementById('new-banner-file').files[0];
-        if(!file) return showToast("Pilih gambar banner!");
-        showLoading(true);
-        const b64 = await compressImageToBase64(file);
-        const ref = doc(collection(db, window.getPath('banners')));
-        await setDoc(ref, { id: ref.id, url: b64, linkUrl: document.getElementById('new-banner-url').value, isVisible: true });
-        closeAddBannerModal();
-        showLoading(false);
-        showToast("Banner ditambahkan!");
-    }
-
-    window.saveAppSettings = async () => {
-        await updateDoc(doc(db, window.getPath('settings'), 'core'), {
-            name: document.getElementById('setting-app-name').value,
-            tagline: document.getElementById('setting-app-tagline').value,
-            aboutText: document.getElementById('setting-app-about').value
-        });
-        showToast("Pengaturan Sistem Disimpan!");
-    }
-
-    window.likeProduct = async (productId) => {
-        if (!window.currentUser) { showToast("Silakan login untuk menyukai produk."); navigate('profile'); return; }
-        const p = window.appData.products.find(x => x.id === productId);
-        if (p) {
-            let likesArr = p.likedBy || [];
-            const index = likesArr.indexOf(window.currentUser.uid);
-            if (index > -1) likesArr.splice(index, 1); else likesArr.push(window.currentUser.uid);
-            await updateDoc(doc(db, window.getPath('products'), productId), { likedBy: likesArr, likes: likesArr.length });
-        }
-    }
-
-    window.likeCurrentShop = async () => {
-        if (!window.currentUser) { showToast("Silakan login untuk menyukai toko."); navigate('profile'); return; }
-        if (!window.currentActiveShopId) return;
-        const shop = window.appData.shops.find(s => s.shopId === window.currentActiveShopId);
-        if(shop) {
-            let likesArr = shop.likedBy || [];
-            const index = likesArr.indexOf(window.currentUser.uid);
-            if (index > -1) likesArr.splice(index, 1); else likesArr.push(window.currentUser.uid);
-            await updateDoc(doc(db, window.getPath('shops'), shop.shopId), { likedBy: likesArr, likes: likesArr.length });
-        }
-    }
-
-    window.postShopComment = async () => {
-        if(!window.currentUser) { showToast("Login untuk berkomentar."); navigate('profile'); return; }
-        const input = document.getElementById('shop-comment-input');
-        const text = input.value.trim();
-        if(!text || !window.currentActiveShopId) return;
-        
-        const shop = window.appData.shops.find(s => s.shopId === window.currentActiveShopId);
-        if(shop) {
-            const coms = shop.comments || [];
-            coms.push({ sender: window.currentUser.name, text: text, time: new Date().toLocaleDateString('id-ID') });
-            await updateDoc(doc(db, window.getPath('shops'), shop.shopId), { comments: coms });
-            input.value = '';
-        }
-    }
-
     window.addToCart = (productId) => {
         if (!window.currentUser || window.currentUser.role !== 'pembeli') return showToast("Hanya Pembeli yang bisa berbelanja.");
         const product = window.appData.products.find(p => p.id === productId);
@@ -2516,8 +2563,10 @@
         const pr = parseInt(document.getElementById('review-product-rating').value);
         const comment = document.getElementById('review-comment').value.trim();
         
-        await updateDoc(doc(db, window.getPath('orders'), id), { review: { shopRating: sr, productRating: pr, comment } });
-        window.closeReviewModal(); showToast("Terima Kasih atas Ulasannya!");
+        try {
+            await updateDoc(doc(db, window.getPath('orders'), id), { review: { shopRating: sr, productRating: pr, comment } });
+            window.closeReviewModal(); showToast("Terima Kasih atas Ulasannya!");
+        } catch(e) {}
     }
 </script>
 
